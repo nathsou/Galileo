@@ -4,7 +4,7 @@
 Lightweight procedurally generated planet renderer
 with continuous level of detail
 
-![CDLOD Demo](https://media.giphy.com/media/24G0tNHiV94P2U3hXb/giphy.gif)
+[![CDLOD Demo](dist/CDLOD.gif)](https://nathsou.github.io/Galileo/dist)
 
 ## Todo
 
