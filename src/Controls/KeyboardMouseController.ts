@@ -3,20 +3,21 @@ import EventEmitter from "../Utils/EventEmitter";
 import Controller from "./Controller";
 import { KeyboardLayout, KeyboardLayoutMap, KeyboardLayoutMaps } from "./KeyboardLayout";
 import { vec3, quat } from 'gl-matrix';
-import { normalize, scale, radians } from '../Utils/MathUtils';
+import { radians } from '../Utils/MathUtils';
+import { normalize, scale } from '../Utils/Vec3Utils';
 
 export default class KeyboardMouseController extends EventEmitter implements Controller {
 
     public camera: Camera;
     public domElement: EventTarget;
 
-    private actions: Map<string, boolean>;
-    public speed: number;
-    public mouse_sensitivity: number;
-    private layout = KeyboardLayout.CLASSICAL;
-    private key_map: KeyboardLayoutMap;
-    private needs_update = true;
-    private pointerLockEnabled = false;
+    private _actions: Map<string, boolean>;
+    public _speed: number;
+    public _mouse_sensitivity: number;
+    private _layout = KeyboardLayout.CLASSICAL;
+    private _key_map: KeyboardLayoutMap;
+    private _needs_update = true;
+    private _pointerLockEnabled = false;
 
     constructor(
         camera: Camera,
@@ -28,16 +29,16 @@ export default class KeyboardMouseController extends EventEmitter implements Con
         this.camera = camera;
         this.domElement = domElement;
 
-        this.speed = speed;
-        this.mouse_sensitivity = mouse_sensitivity;
+        this._speed = speed;
+        this._mouse_sensitivity = mouse_sensitivity;
 
-        if (KeyboardLayoutMaps.has(this.layout)) {
-            this.key_map = KeyboardLayoutMaps.get(this.layout);;
+        if (KeyboardLayoutMaps.has(this._layout)) {
+            this._key_map = KeyboardLayoutMaps.get(this._layout);
         } else {
-            throw new Error(`No Key mapping for '${KeyboardLayout[this.layout]}' defined in 'KeyboardLayoutMaps'`);
+            throw new Error(`No Key mapping for '${KeyboardLayout[this._layout]}' defined in 'KeyboardLayoutMaps'`);
         }
 
-        this.actions = new Map<string, boolean>();
+        this._actions = new Map<string, boolean>();
 
         this.domElement.addEventListener('keydown', this.onKeyDown.bind(this), false);
         this.domElement.addEventListener('keyup', this.onKeyUp.bind(this), false);
@@ -47,13 +48,13 @@ export default class KeyboardMouseController extends EventEmitter implements Con
     }
 
     private actionPerformed(action: string, keyCode: string): boolean {
-        return this.key_map[action].some((code: string) => code === keyCode);
+        return this._key_map[action].some((code: string) => code === keyCode);
     }
 
     private updateActions(keyCode: string, key_down: boolean): void {
-        for (let action in this.key_map) {
+        for (let action in this._key_map) {
             if (this.actionPerformed(action, keyCode)) {
-                this.actions.set(action, key_down);
+                this._actions.set(action, key_down);
             }
         }
     }
@@ -70,7 +71,7 @@ export default class KeyboardMouseController extends EventEmitter implements Con
 
     public onPointerLockChange(event: Event) {
         this.emit('pointerlockchange', event);
-        this.pointerLockEnabled = !this.pointerLockEnabled;
+        this._pointerLockEnabled = !this._pointerLockEnabled;
     }
 
     public onPointerLockError(event: Event) {
@@ -81,18 +82,18 @@ export default class KeyboardMouseController extends EventEmitter implements Con
 
     private onMouseMove(event: MouseEvent): void {
 
-        if (!this.pointerLockEnabled) return;
+        if (!this._pointerLockEnabled) return;
 
-        const deltaYaw = radians(event.movementX * this.mouse_sensitivity);
-        const deltaPitch = radians(event.movementY * this.mouse_sensitivity);
+        const deltaYaw = radians(event.movementX * this._mouse_sensitivity);
+        const deltaPitch = radians(event.movementY * this._mouse_sensitivity);
 
-        const q = this.camera.getOrientation();
+        const q = this.camera.orientation;
         quat.rotateX(q, q, -deltaPitch);
         quat.rotateY(q, q, -deltaYaw);
-        this.camera.setOrientation(q);
+        this.camera.orientation = q;
 
         this.emit('turn', event);
-        this.needs_update = true;
+        this._needs_update = true;
     }
 
     public dispose(): void {
@@ -115,37 +116,37 @@ export default class KeyboardMouseController extends EventEmitter implements Con
     //returns whether or not the player has moved during this update
     public update(delta: number, normalized_altitude: number): boolean {
 
-        const speed = delta * this.speed * normalized_altitude;
-        const basis = this.camera.getBasis();
+        const speed = delta * this._speed * normalized_altitude;
+        const basis = this.camera.basis;
         let delta_pos = vec3.create(),
             moved = false;
 
-        if (this.actions.get('forward')) {
+        if (this._actions.get('forward')) {
             vec3.add(delta_pos, delta_pos, basis.front);
             moved = true;
         }
 
-        if (this.actions.get('backward')) {
+        if (this._actions.get('backward')) {
             vec3.sub(delta_pos, delta_pos, basis.front);
             moved = true;
         }
 
-        if (this.actions.get('right')) {
+        if (this._actions.get('right')) {
             vec3.add(delta_pos, delta_pos, basis.right);
             moved = true;
         }
 
-        if (this.actions.get('left')) {
+        if (this._actions.get('left')) {
             vec3.sub(delta_pos, delta_pos, basis.right);
             moved = true;
         }
 
-        if (this.actions.get('up')) {
+        if (this._actions.get('up')) {
             vec3.add(delta_pos, delta_pos, basis.up);
             moved = true;
         }
 
-        if (this.actions.get('down')) {
+        if (this._actions.get('down')) {
             vec3.sub(delta_pos, delta_pos, basis.up);
             moved = true;
         }
@@ -155,8 +156,8 @@ export default class KeyboardMouseController extends EventEmitter implements Con
 
         if (moved) this.emit('move', delta_pos);
 
-        const updated = moved || this.needs_update;
-        this.needs_update = false;
+        const updated = moved || this._needs_update;
+        this._needs_update = false;
 
         return updated;
     }

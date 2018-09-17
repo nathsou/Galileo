@@ -1,10 +1,11 @@
 import Camera from "../Controls/Camera";
-import { fill, radians, vec } from "../Utils/MathUtils";
+import { radians } from "../Utils/MathUtils";
 import { mat4 } from "gl-matrix";
+import { fill, vec } from "../Utils/Vec3Utils";
 
 describe('Frustum', () => {
     const camera = new Camera(fill(0), radians(30), 16 / 9, 1, 500);
-    const frustum = camera.getFrustum();
+    const frustum = camera.frustum;
     frustum.update(mat4.create());
 
     it('should test whether points are inside the frustum or not', () => {

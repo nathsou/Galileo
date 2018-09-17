@@ -1,93 +1,128 @@
-import Shader from "./Shader";
-import { textShader } from "../Map/Shaders/TextShader";
-import { mat4 } from "gl-matrix";
-
-export interface TextInfo {
-    readonly text: string,
-    readonly position: { x: number, y: number },
-    readonly style?: string,
-    readonly fontSize?: number //px
-}
+import { vec2, vec3 } from "gl-matrix";
+import { getBoundingBox, mapBox, g_prod } from "./VecUtils";
+import { createCanvasHelper } from "./CanvasUtils";
 
 const text_ctx = document.createElement('canvas').getContext('2d');
 
-function generateTextTexture(info: TextInfo): HTMLCanvasElement {
+export type TextHelper = (text: string, pos: vec3) => { width: number, height: number };
+export type PlotHelper = (position: vec3, ...points: (vec2 | number[])[]) => void;
 
-    info = {
-        style: 'red',
-        fontSize: 20,
-        ...info
+export interface TextOptions {
+    color?: string,
+    font_size?: number,
+    font_family?: string,
+    margin?: number,
+    background_color?: string
+}
+
+function generateTextTexture(text: string, text_info: TextOptions): HTMLCanvasElement {
+
+    const info: TextOptions = {
+        color: 'tomato',
+        font_size: 35,
+        font_family: 'monospace, sans-serif',
+        margin: 5,
+        background_color: 'rgba(0, 0, 0, 255)',
+        ...text_info
     };
 
-    const width = text_ctx.measureText(info.text).width;
-    const height = 2 * info.fontSize;
+    text_ctx.font = `${info.font_size}px ${info.font_family}`;
+    const w = text_ctx.measureText(text).width + info.margin;
+    const h = info.font_size + info.margin;
 
-    text_ctx.canvas.width = width;
-    text_ctx.canvas.height = height;
-    text_ctx.font = `${info.fontSize} monospace`;
+    text_ctx.canvas.width = w;
+    text_ctx.canvas.height = h;
+
+    text_ctx.font = `${info.font_size}px ${info.font_family}`;
     text_ctx.textAlign = 'center';
     text_ctx.textBaseline = 'middle';
-    text_ctx.clearRect(0, 0, width, height);
-    text_ctx.fillStyle = 'rgba(0, 0, 0, 0.0)';
-    text_ctx.fillStyle = info.style;
+    text_ctx.fillStyle = info.background_color;
+    text_ctx.fillRect(0, 0, w, h);
+    text_ctx.fillStyle = info.color;
     text_ctx.fill();
-    text_ctx.fillText(info.text, width / 2, height / 2);
+    text_ctx.fillText(text, w / 2, h / 2);
 
     return text_ctx.canvas;
 }
 
-export type TextHelper = (model_view_proj: mat4, text: string) => void;
 
-export function drawText(gl: WebGL2RenderingContext, info: TextInfo): TextHelper {
-    const tex_cnv = generateTextTexture(info);
+export function createTextHelper(gl: WebGL2RenderingContext, text_info: TextOptions): TextHelper {
 
-    const shader = new Shader(gl, textShader);
-    shader.use();
+    const drawCanvas = createCanvasHelper(gl);
+    let tex_cnv: HTMLCanvasElement;
+    let last_text: string;
 
-    //Setup the position attribute
-    const VAO = gl.createVertexArray();
-    const VBO = gl.createBuffer();
+    return (text: string, pos: vec3) => {
+        if (last_text !== text) {
+            last_text = text;
+            tex_cnv = generateTextTexture(text, text_info);
+        }
 
-    const vertices = [
-        -1.0, -1.0, 0.0,
-        1.0, -1.0, 0.0,
-        1.0, 1.0, 0.0,
+        drawCanvas(tex_cnv, pos);
 
-        1.0, 1.0, 0.0,
-        -1.0, 1.0, 0.0,
-        -1.0, -1.0, 0.0
-    ];
+        return {
+            width: tex_cnv.width,
+            height: tex_cnv.height
+        };
+    };
+}
 
-    gl.bindVertexArray(VAO);
-    gl.bindBuffer(gl.ARRAY_BUFFER, VBO);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-    const position_attrib = shader.getAttribLocation('position');
-    gl.vertexAttribPointer(position_attrib, 3, gl.FLOAT, false, 3 * 4, 0);
-    gl.enableVertexAttribArray(position_attrib);
-    gl.bindBuffer(gl.ARRAY_BUFFER, null);
-    gl.bindVertexArray(null);
+export interface PlotOptions {
+    width: number,
+    height: number,
+    color?: string,
+    background_color?: string,
+    line_width?: number,
+    auto_scale?: boolean, //automatically adjust the points to fit in [[0, width], [0, height]]
+    normalized?: boolean //points are in [[0, 1], [0, 1]] ?
+}
 
-    const tex = gl.createTexture();
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, tex_cnv);
-    gl.generateMipmap(gl.TEXTURE_2D);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.bindTexture(gl.TEXTURE_2D, null);
+export function createPlotHelper(gl: WebGL2RenderingContext, options: PlotOptions): PlotHelper {
+    const drawCanvas = createCanvasHelper(gl);
 
-    return (model_view_proj: mat4, text: string) => {
-        shader.use();
-        gl.bindTexture(gl.TEXTURE_2D, tex);
-        shader.setInt('u_texture', 0);
-        shader.setMat4('model_view_proj', model_view_proj);
+    const cnv = document.createElement('canvas');
+    cnv.width = options.width;
+    cnv.height = options.height;
+    const ctx = cnv.getContext('2d');
 
-        gl.bindVertexArray(VAO);
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
+    options = {
+        color: 'blue',
+        background_color: 'white',
+        line_width: 1,
+        auto_scale: true,
+        normalized: false,
+        ...options
+    };
 
-        gl.bindVertexArray(null);
-        gl.bindBuffer(gl.ARRAY_BUFFER, null);
-        gl.bindTexture(gl.TEXTURE_2D, null);
+    return (position: vec3, ...points: (vec2 | number[])[]) => {
+
+        if (options.normalized) {
+            points = points.map(p => g_prod(p, [cnv.width, cnv.height]));
+        }
+
+        if (options.auto_scale) {
+            //auto scale points to fit in the canvas
+            const box = getBoundingBox(...points as number[][]);
+            points = points.map(p =>
+                mapBox(p, box, { min: [0, 0], max: [options.width, options.height] })
+            );
+        }
+
+        //plot the points to the canvas
+        ctx.clearRect(0, 0, cnv.width, cnv.height);
+        ctx.fillStyle = options.background_color;
+        ctx.fillRect(0, 0, cnv.width, cnv.height);
+        ctx.fill();
+        ctx.strokeStyle = options.color;
+
+        ctx.beginPath();
+        ctx.moveTo(points[0][0], points[0][1]);
+        for (const point of points.slice(1)) {
+            ctx.lineTo(point[0], point[1]);
+        }
+        ctx.stroke();
+        ctx.closePath();
+
+        drawCanvas(cnv, position);
     };
 }

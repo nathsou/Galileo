@@ -1,6 +1,6 @@
 import { ShaderSource } from "../../Utils/Shader";
 
-export const normalShader: ShaderSource = {
+export const normalMapShader: ShaderSource = {
     vertex: `#version 300 es
     in vec2 position;
 

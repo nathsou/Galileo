@@ -3,19 +3,25 @@ import { wireFrameShader } from "../Map/Shaders/WireFrameShader";
 import { mat4, vec3 } from "gl-matrix";
 import { colors } from "./ColorUtils";
 import Frustum from "./Frustum";
-import { sum, times, transform } from "./MathUtils";
+import { sum, times, transform, normalize, vec } from "./Vec3Utils";
 import { Prism } from "../Map/IcoSphereFace";
 
-export type LineHelper = (lines: Line[], model_view_proj: mat4) => void;
-export type ArrowHelper = (origin: vec3, dir: vec3, model_view_proj: mat4, length: number) => void;
-export type BoxHelper = (box: Box, model_view_proj: mat4) => void;
-export type FrustumHelper = (frustum: Frustum, model_view_proj: mat4) => void;
+export type LineHelper = (model_view_proj: mat4, ...lines: Line[]) => void;
+export type ArrowHelper = (model_view_proj: mat4, ...arrows: Arrow[]) => void;
+export type BoxHelper = (model_view_proj: mat4, ...boxes: Box[]) => void;
+export type FrustumHelper = (model_view_proj: mat4, ...frustums: Frustum[]) => void;
 export type PrismHelper = (model_view_proj: mat4, ...prisms: Prism[]) => void;
 
 export interface Line {
     [key: string]: vec3,
     from: vec3,
     to: vec3
+}
+
+export interface Arrow {
+    origin: vec3,
+    dir: vec3,
+    length: number
 }
 
 export interface Rectangle {
@@ -57,7 +63,7 @@ export function createLineHelper(gl: WebGL2RenderingContext, color = colors.gree
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     gl.bindVertexArray(null);
 
-    return (lines: Line[], model_view_proj: mat4) => {
+    return (model_view_proj: mat4, ...lines: Line[]) => {
         shader.use();
         gl.bindBuffer(gl.ARRAY_BUFFER, VBO);
 
@@ -83,12 +89,15 @@ export function createArrowHelper(gl: WebGL2RenderingContext, color = colors.blu
 
     const drawLines = createLineHelper(gl, color);
 
-    return (origin: vec3, dir: vec3, model_view_proj: mat4, length = 1) => {
-        const _dir = vec3.create();
-        vec3.normalize(_dir, dir);
-        const end_point = sum(origin, _dir.map(v => v * length));
+    return (model_view_proj: mat4, ...arrows: Arrow[]) => {
+        const lines: Line[] = [];
 
-        drawLines([{ from: origin, to: end_point }], model_view_proj);
+        for (const { origin, dir, length } of arrows) {
+            const to = sum(origin, times(normalize(dir), length));
+            lines.push({ from: origin, to: to });
+        }
+
+        drawLines(model_view_proj, ...lines);
     };
 }
 
@@ -147,13 +156,13 @@ export function createBox(box: Box): Line[] {
     const half_depth = box.depth / 2;
 
     const front = createRectangle({
-        position: sum(box.position, [0, 0, half_depth]),
+        position: sum(box.position, vec(0, 0, half_depth)),
         width: box.width,
         height: box.height
     });
 
     const back = createRectangle({
-        position: sum(box.position, [0, 0, -half_depth]),
+        position: sum(box.position, vec(0, 0, -half_depth)),
         width: box.width,
         height: box.height
     });
@@ -167,8 +176,14 @@ export function createBoxHelper(gl: WebGL2RenderingContext, color = colors.red):
 
     const drawLines = createLineHelper(gl, color);
 
-    return (box: Box, model_view_proj: mat4) => {
-        drawLines(createBox(box), model_view_proj);
+    return (model_view_proj: mat4, ...boxes: Box[]) => {
+        const lines: Line[] = [];
+
+        for (const box of boxes) {
+            lines.push(...createBox(box));
+        }
+
+        drawLines(model_view_proj, ...lines);
     };
 }
 
@@ -178,11 +193,21 @@ export function createFrustumHelper(gl: WebGL2RenderingContext): FrustumHelper {
     const drawNearPlane = createLineHelper(gl, colors.red);
     const drawEdges = createLineHelper(gl, colors.green);
 
-    return (frustum: Frustum, model_view_proj: mat4) => {
-        const lines = frustum.getDebugLines();
-        drawFarPlane(lines.slice(0, 4), model_view_proj);
-        drawNearPlane(lines.slice(4, 8), model_view_proj);
-        drawEdges(lines.slice(8, 12), model_view_proj);
+    return (model_view_proj: mat4, ...frustums: Frustum[]) => {
+        const far_lines: Line[] = [];
+        const near_lines: Line[] = [];
+        const edge_lines: Line[] = [];
+
+        for (const frustum of frustums) {
+            const lines = frustum.getDebugLines();
+            far_lines.push(...lines.slice(0, 4));
+            near_lines.push(...lines.slice(4, 8));
+            edge_lines.push(...lines.slice(8, 12));
+        }
+
+        drawFarPlane(model_view_proj, ...far_lines);
+        drawNearPlane(model_view_proj, ...near_lines);
+        drawEdges(model_view_proj, ...edge_lines);
     };
 }
 
@@ -207,6 +232,6 @@ export function createPrismHelper(gl: WebGL2RenderingContext, color = colors.cya
             );
         }
 
-        drawLines(createLines(lines), model_view_proj);
+        drawLines(model_view_proj, ...createLines(lines));
     };
 }

@@ -3,8 +3,10 @@ import EventEmitter from '../Utils/EventEmitter';
 import Controller from "./Controller";
 import KeyboardMouseController from "./KeyboardMouseController";
 import { vec3, quat } from 'gl-matrix';
-import { radians, fill } from '../Utils/MathUtils';
+import { radians, getNormalizedAltitude } from '../Utils/MathUtils';
+import { fill } from '../Utils/Vec3Utils';
 import IcoSphere from '../Map/IcoSphere';
+import Sphere from '../Map/Sphere';
 
 export enum PlayerControls { MOUSE_KEYBOARD } //TODO: VR_CONTROLLER, GAMEPAD...
 
@@ -18,14 +20,14 @@ export interface PlayerOptions {
 
 export default class Player extends EventEmitter {
 
-    private camera: Camera;
-    private controller: Controller;
-    private readonly options: PlayerOptions;
+    private _camera: Camera;
+    private _controller: Controller;
+    private readonly _options: PlayerOptions;
 
-    constructor(options: PlayerOptions, domElement: EventTarget = document) {
+    constructor(options: PlayerOptions, domElement: HTMLElement | Document = document) {
         super();
 
-        this.options = {
+        this._options = {
             position: fill(0),
             orientation: quat.create(),
             FOV: radians(45),
@@ -34,56 +36,57 @@ export default class Player extends EventEmitter {
             ...options
         };
 
-        this.camera = new Camera(
-            this.options.position,
-            this.options.FOV,
+        this._camera = new Camera(
+            this._options.position,
+            this._options.FOV,
             window.innerWidth / window.innerHeight,
             0.1,
-            this.options.view_distance
+            this._options.view_distance
         );
 
-        this.camera.setOrientation(this.options.orientation);
+        this._camera.orientation = this._options.orientation;
 
         this.initController(domElement);
     }
 
     private initController(domElement: EventTarget) {
-        switch (this.options.controls) {
+        switch (this._options.controls) {
             case PlayerControls.MOUSE_KEYBOARD:
             default:
-                this.controller = new KeyboardMouseController(this.camera, domElement);
+                this._controller = new KeyboardMouseController(this._camera, domElement);
 
-                this.bindEvent(this.controller, 'move');
-                this.bindEvent(this.controller, 'turn');
-                this.bindEvent(this.controller, 'keydown');
+                this.bindEvent(this._controller, 'move');
+                this.bindEvent(this._controller, 'turn');
+                this.bindEvent(this._controller, 'keydown');
         }
     }
 
     //returns whether or not the player has moved during this update
-    public update(delta: number, sphere: IcoSphere): boolean {
-        const moved = this.controller.update(delta, sphere.getNormalizedAltitude(this.getPosition()));
-        if (moved) this.camera.updateFrustum(sphere.getInverseModelMatrix());
+    public update(delta: number, sphere: Sphere): boolean {
+        const normalizer_altitude = getNormalizedAltitude(this.position, sphere.center, sphere.radius);
+        const moved = this._controller.update(delta, normalizer_altitude);
+        if (moved) this._camera.updateFrustum(sphere.inverseModelMatrix);
         return moved;
     }
 
-    public getCamera(): Camera {
-        return this.camera;
+    public get camera(): Camera {
+        return this._camera;
     }
 
-    public getPosition(): vec3 {
-        return this.camera.getPosition();
+    public get position(): vec3 {
+        return this._camera.position;
     }
 
-    public getFOV(): number {
-        return this.camera.getFOV();
+    public get FOV(): number {
+        return this._camera.FOV;
     }
 
-    public getController(): Controller {
-        return this.controller;
+    public get controller(): Controller {
+        return this._controller;
     }
 
     public dispose(): void {
-        this.controller.dispose();
+        this._controller.dispose();
     }
 
 }

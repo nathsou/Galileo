@@ -132,6 +132,19 @@ export const terrainShader: ShaderSource = {
         return vec3(x, y, z);
     }
     
+    vec3 getTerrainColor(float n) {
+
+      if (n < 0.5f) {
+          n = 0.5f;
+          //return vec3(0.0, 0.5, 0.5);
+          return vec3(0.302f, 0.388f, 0.714f); //water
+      } else if (n < 0.7f){
+          return mix(vec3(0.239f, 0.614f, 0.214f), vec3(0.686f, 0.671f, 0.412f), smoothstep(0.52f, 0.7f, n)); //land
+      } else {
+          return mix(vec3(0.686f, 0.671f, 0.412f), vec3(0.949f, 0.949f, 0.949f), smoothstep(0.7f, 1.0f, n)); //mountains
+      }
+  }
+
     void main() {
     
         vec2 st = a_pos * 0.5f + 0.5f;

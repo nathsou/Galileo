@@ -97,7 +97,8 @@
 		window.addEventListener('resize', resize);
 
 		var gl = cnv.getContext('webgl2', {
-			antialias: true
+			antialias: true,
+			alpha: true
 		});
 
 		if (gl === null) {

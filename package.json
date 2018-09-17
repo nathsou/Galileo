@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "description": "WebGL Planet Renderer",
   "scripts": {
-    "start": "webpack-dev-server --mode development",
+    "start": "webpack-dev-server --mode development -d",
     "build": "webpack --mode production",
     "test": "jest --watchAll"
   },
@@ -26,7 +26,7 @@
   },
   "jest": {
     "transform": {
-      "^.+\\.tsx?$": "ts-jest"
+      "^.+\\.ts$": "ts-jest"
     },
     "testRegex": "(/__tests__/.*|(\\.|/)(test|spec))\\.(js|ts)$",
     "moduleFileExtensions": [

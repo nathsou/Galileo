@@ -1,6 +1,9 @@
 import Shader, { ShaderSource } from "./Shader";
 import { terrainShader } from "../Map/Shaders/TerrainShader";
-import { normalShader } from "../Map/Shaders/NormalShader";
+import { normalMapShader } from "../Map/Shaders/NormalMapShader";
+import { vec3 } from "gl-matrix";
+import { plainColorShader } from "../Map/Shaders/PlainColorShader";
+import { heightMapToColorMapShader } from "../Map/Shaders/HeightMapToColorMapShader";
 
 export interface TextureInfo {
     handle: WebGLTexture,
@@ -43,7 +46,7 @@ export namespace Texture {
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
 
         const pos_loc = shader.getAttribLocation('position');
-        gl.vertexAttribPointer(pos_loc, 2, gl.FLOAT, false, 2 * 4, 0);
+        gl.vertexAttribPointer(pos_loc, 2, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(pos_loc);
 
         // note that this is allowed, the call to gl.VertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
@@ -107,11 +110,11 @@ export namespace Texture {
     }
 
     // Draw the texture onto a canvas
-    export function toCanvas(source: ShaderSource, width: number, height: number): HTMLCanvasElement {
+    export function toCanvas(source: Shader | ShaderSource, width: number, height: number): HTMLCanvasElement {
 
         const canvas = document.createElement('canvas');
         const gl = canvas.getContext('webgl2') as WebGL2RenderingContext;
-        const shader = new Shader(gl, source);
+        const shader = source instanceof Shader ? source : new Shader(gl, source);
         canvas.width = width;
         canvas.height = height;
 
@@ -144,7 +147,7 @@ export namespace Texture {
         return canvas;
     }
 
-    export function toURL(source: ShaderSource, width: number, height: number): Promise<string> {
+    export function toURL(source: Shader | ShaderSource, width: number, height: number): Promise<string> {
         return new Promise<string>(resolve => {
             const canvas = Texture.toCanvas(source, width, height);
             canvas.toBlob((blob: Blob) => {
@@ -166,7 +169,12 @@ export namespace Texture {
         });
     }
 
-    export function openInWindow(source: ShaderSource, width: number, height: number, name = 'Texture Visualizer'): void {
+    export function openInWindow(
+        source: Shader | ShaderSource,
+        width: number,
+        height: number,
+        name = 'Texture Visualizer'
+    ): void {
         Texture.toURL(source, width, height).then(url => {
             window.open(
                 url,
@@ -184,6 +192,18 @@ export namespace Texture {
         });
     }
 
+    export function generatePlainColorTexture(
+        gl: WebGL2RenderingContext,
+        width: number,
+        height: number,
+        color: vec3
+    ): TextureInfo {
+        const shader = new Shader(gl, plainColorShader);
+        shader.use();
+        shader.setVec3('u_color', color);
+        return Texture.generate(gl, shader, width, height);
+    }
+
     export function generateHeightMap(
         gl: WebGL2RenderingContext,
         width: number,
@@ -192,13 +212,24 @@ export namespace Texture {
         return Texture.generate(gl, terrainShader, width, height);
     }
 
+    export function generateColorMap(
+        gl: WebGL2RenderingContext,
+        height_map: TextureInfo
+    ): TextureInfo {
+        const shader = new Shader(gl, heightMapToColorMapShader);
+        shader.use();
+        shader.setInt('height_map', height_map.boundTo);
+        return Texture.generate(gl, shader, height_map.width, height_map.height);
+    }
+
     export function generateNormalMap(
         gl: WebGL2RenderingContext,
         height_map: TextureInfo
     ): TextureInfo {
         //Texture.bind(gl, height_map, 1);
-        const shader = new Shader(gl, normalShader);
-        //shader.setInt('height_map', height_map.boundTo);
+        const shader = new Shader(gl, normalMapShader);
+        shader.use();
+        shader.setInt('height_map', height_map.boundTo);
         return Texture.generate(gl, shader, height_map.width, height_map.height);
     }
 }

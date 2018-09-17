@@ -3,7 +3,7 @@ import { vec2, vec3 } from "gl-matrix";
 import Shader from '../Utils/Shader';
 import IcoSphere from './IcoSphere';
 import Camera from '../Controls/Camera';
-import { vec, normalize, scale } from '../Utils/MathUtils';
+import { vec, normalize, scale } from '../Utils/Vec3Utils';
 
 export interface PatchVertex {
     position: vec2;
@@ -21,12 +21,13 @@ export interface PatchInstance { //of a triangle ABC
 export default class Patch {
 
     private gl: WebGL2RenderingContext;
-    private indices: number[];
-    private vertices: number[];
-    private instances: number[];
-    private levels: number;
-    private shader: Shader;
-    private sphere: IcoSphere;
+    private _indices: number[];
+    private _vertices: number[];
+    private _instances: number[];
+    private _levels: number;
+    private _shader: Shader;
+    private _sphere: IcoSphere;
+    private _instances_count: number;
 
     private attributes: {
         pos: number,
@@ -44,43 +45,45 @@ export default class Patch {
     private EBO: WebGLBuffer;
     private VBO_instance: WebGLBuffer;
 
-    constructor(gl: WebGL2RenderingContext, sphere: IcoSphere, levels: number) {
+    constructor(gl: WebGL2RenderingContext, sphere: IcoSphere) {
         this.gl = gl;
-        this.sphere = sphere;
-        this.shader = new Shader(gl, patchShader);
-        this.levels = levels;
-        this.instances = [];
+        this._sphere = sphere;
+        this._shader = new Shader(gl, patchShader);
+        this._levels = sphere.options.patch_levels;
+        this._instances = [];
+
+        this._shader.attachTexture('height_map', 0);
+        this._shader.attachTexture('color_map', 1);
+        this._shader.attachTexture('normal_map', 2);
     }
 
     private initUniforms(): void {
-        const sp = this.sphere.getOptions();
         const light_dir = normalize(vec(1, 0.7, 0.3));
 
-        this.shader.setFloat('morph_range', this.sphere.getOptions().morph_range);
-        this.shader.setVec3('light_dir', light_dir);
-        this.shader.setFloat('time', Date.now());
+        this._shader.setFloat('morph_range', this._sphere.options.morph_range);
+        this._shader.setVec3('light_dir', light_dir);
 
         this.uploadDistanceLUT();
     }
 
     private uploadDistanceLUT(): void {
-        this.gl.useProgram(this.shader.getProgram());
+        this.gl.useProgram(this._shader.program);
 
-        for (let i = 0; i < this.sphere.getOptions().max_lod; i++) {
-            this.shader.setFloat(`distanceLUT[${i}]`, this.sphere.getSplitDistance(i));
+        for (let i = 0; i < this._sphere.options.max_lod; i++) {
+            this._shader.setFloat(`distanceLUT[${i}]`, this._sphere.getSplitDistance(i));
         }
     }
 
     private initAttributes(): void {
         this.attributes = {
-            pos: this.shader.getAttribLocation('pos'),
-            morph: this.shader.getAttribLocation('morph'),
-            barycentric: this.shader.getAttribLocation('barycentric'),
+            pos: this._shader.getAttribLocation('pos'),
+            morph: this._shader.getAttribLocation('morph'),
+            barycentric: this._shader.getAttribLocation('barycentric'),
 
-            level: this.shader.getAttribLocation('level'),
-            A: this.shader.getAttribLocation('A'),
-            R: this.shader.getAttribLocation('R'),
-            S: this.shader.getAttribLocation('S')
+            level: this._shader.getAttribLocation('level'),
+            A: this._shader.getAttribLocation('A'),
+            R: this._shader.getAttribLocation('R'),
+            S: this._shader.getAttribLocation('S')
         }
     }
 
@@ -105,7 +108,7 @@ export default class Patch {
     public init(): void {
 
         //Shader init
-        this.gl.useProgram(this.shader.getProgram());
+        this._shader.use();
         this.gl.enable(this.gl.DEPTH_TEST);
         this.gl.enable(this.gl.CULL_FACE);
 
@@ -151,14 +154,14 @@ export default class Patch {
         let idx = 0;
 
         //clear
-        this.vertices = [];
-        this.indices = [];
+        this._vertices = [];
+        this._indices = [];
 
         let positions = [];
         let morphs = [];
 
         //Generate
-        const m_RC = 1 + 2 ** this.levels;
+        const m_RC = 1 + 2 ** this._levels;
 
         const delta = 1 / (m_RC - 1);
 
@@ -195,17 +198,17 @@ export default class Patch {
                 //create vertex
                 positions.push(...pos);
                 morphs.push(...morph);
-                this.vertices.push(...pos, ...morph, ...coords[(idx++) % 3]);
+                this._vertices.push(...pos, ...morph, ...coords[(idx++) % 3]);
 
                 //calc index
                 if (row < m_RC - 1 && column < numCols - 1) {
-                    this.indices.push(rowIdx + column); //A
-                    this.indices.push(nextIdx + column); //B
-                    this.indices.push(1 + rowIdx + column); //C
+                    this._indices.push(rowIdx + column); //A
+                    this._indices.push(nextIdx + column); //B
+                    this._indices.push(1 + rowIdx + column); //C
                     if (column < numCols - 2) {
-                        this.indices.push(nextIdx + column); //D
-                        this.indices.push(1 + nextIdx + column); //E
-                        this.indices.push(1 + rowIdx + column); //F
+                        this._indices.push(nextIdx + column); //D
+                        this._indices.push(1 + nextIdx + column); //E
+                        this._indices.push(1 + rowIdx + column); //F
                     }
                 }
             }
@@ -214,20 +217,20 @@ export default class Patch {
 
         //Rebind
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.VBO);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this.vertices), this.gl.DYNAMIC_DRAW);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this._vertices), this.gl.DYNAMIC_DRAW);
         this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.EBO);
-        this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(this.indices), this.gl.STATIC_DRAW);
+        this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(this._indices), this.gl.STATIC_DRAW);
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null);
     }
 
     public bindInstances(): void {
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.VBO_instance);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this.instances), this.gl.STATIC_DRAW);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this._instances), this.gl.STATIC_DRAW);
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null);
     }
 
     public pushInstance(instance: PatchInstance): void {
-        this.instances.push(
+        this._instances.push(
             instance.level,
             ...instance.A,
             ...instance.R,
@@ -237,22 +240,22 @@ export default class Patch {
 
     private updateUniforms(camera: Camera, points: boolean): void {
 
-        const cam_pos = scale(camera.getPosition(), 1 / this.sphere.getRadius());
+        const cam_pos = scale(camera.position, 1 / this._sphere.radius);
 
-        this.shader.setMat4('model', this.sphere.getModelMatrix());
-        this.shader.setMat4('view', camera.getViewMatrix());
-        this.shader.setMat4('projection', camera.getProjectionMatrix());
+        this._shader.setMat4('model', this._sphere.modelMatrix);
+        this._shader.setMat4('view', camera.viewMatrix);
+        this._shader.setMat4('projection', camera.projectionMatrix);
 
-        this.shader.setVec3('cam_pos', cam_pos);
-        this.shader.setBool('points', points);
-        this.shader.setFloat('time', Math.sin((Date.now() / 5000) % (2 * Math.PI)));
-        this.shader.setInt('height_map', 0);
-        this.shader.setInt('normal_map', 1);
+        this._shader.setVec3('cam_pos', cam_pos);
+        this._shader.setBool('points', points);
+        this._shader.setFloat('time', Math.sin((Date.now() / 5000) % (2 * Math.PI)));
+
+        this._shader.bindTextures();
     }
 
-    public draw(camera: Camera, mode: number): void {
+    public render(camera: Camera, mode = this.gl.TRIANGLES): void {
         //Enable this objects shader
-        this.shader.use();
+        this._shader.use();
 
         // Pass transformations to the shader
         this.updateUniforms(camera, mode !== this.gl.TRIANGLES);
@@ -263,18 +266,22 @@ export default class Patch {
         //Draw the object
         this.gl.drawElementsInstanced(
             mode,
-            this.indices.length,
+            this._indices.length,
             this.gl.UNSIGNED_INT,
             0,
-            this.instances.length / 10
+            this._instances.length / 10
         );
 
         //unbind vertex array
         this.gl.bindVertexArray(null);
 
-        console.log(this.instances.length);
+        this._instances_count = this._instances.length;
+        this._instances = [];
+    }
 
-        this.instances = [];
+
+    public get instancesCount(): number {
+        return this._instances_count;
     }
 
 }

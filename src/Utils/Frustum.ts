@@ -1,6 +1,7 @@
 import { vec3, mat4 } from "gl-matrix";
 import Camera from "../Controls/Camera";
-import { sum, times, transform, radians } from "./MathUtils";
+import { radians } from "./MathUtils";
+import { sum, times, transform } from "./Vec3Utils";
 import { Plane } from "./Plane";
 import { Line, createLines } from "./Helpers";
 import { Prism } from "../Map/IcoSphereFace";
@@ -23,21 +24,21 @@ export default class Frustum {
         const world_inv = inverse_model_matrix;
 
         //TODO: Fix frustum culling
-        const normHalfWidth = Math.tan(this.camera.getFOV()); //+ radians(20));
+        const normHalfWidth = Math.tan(this.camera.FOV); //+ radians(20));
         //const normHalfWidth = Math.tan(radians(25));
-        const aspectRatio = this.camera.getAspectRatio();
+        const aspectRatio = this.camera.aspectRatio;
 
         //calculate width and height for near and far plane
-        const nearHW = normHalfWidth * this.camera.getNear();
+        const nearHW = normHalfWidth * this.camera.near;
         const nearHH = nearHW / aspectRatio;
-        const farHW = normHalfWidth * this.camera.getFar() * 0.5;
+        const farHW = normHalfWidth * this.camera.far * 0.5;
         const farHH = farHW / aspectRatio;
 
-        const basis = this.camera.getBasis();
+        const basis = this.camera.basis;
 
         //calculate near and far plane centers
-        const fCenter = sum(this.camera.getPosition(), times(basis.front, this.camera.getFar() * 0.5));
-        const nCenter = sum(this.camera.getPosition(), times(basis.front, this.camera.getNear()));
+        const fCenter = sum(this.camera.position, times(basis.front, this.camera.far * 0.5));
+        const nCenter = sum(this.camera.position, times(basis.front, this.camera.near));
 
         //construct corners of the near plane in the culled objects world space
         const na = transform(sum(nCenter, times(basis.up, nearHH), times(basis.right, -nearHW)), world_inv);

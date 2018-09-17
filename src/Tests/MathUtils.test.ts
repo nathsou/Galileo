@@ -1,5 +1,31 @@
-import { degrees, radians, clamp, randomMat4, combineMatrices, sum, vec, fill, sub, times, prod, centroid, lerp3, triangleHypotenuse, collinear, numFormat } from "../Utils/MathUtils";
-import { mat4, vec3 } from "gl-matrix";
+import { mat4, vec3, vec4 } from "gl-matrix";
+import { clamp, combineMatrices, degrees, numFormat, radians, randomMat4, triangleHypotenuse } from "../Utils/MathUtils";
+import { centroid, collinear, fill, lerp, normalize, prod, sub, sum, times, vec } from "../Utils/Vec3Utils";
+import { getBoundingBox, g_normalize, g_times, g_vec, mapBox } from "../Utils/VecUtils";
+
+type ArrayLike = number[] | Float32Array;
+
+expect.extend({
+    toBeCloseToArray(received: ArrayLike, array: ArrayLike, eps = 10 ** -6) {
+
+        const pass = received.length === array.length &&
+            (received as number[]).every((x, i) => Math.abs(x - array[i]) < eps);
+
+        return {
+            message: () =>
+                `expected [${received.join(', ')}] to be close to [${array.join(', ')}]`,
+            pass
+        };
+    }
+});
+
+declare global {
+    namespace jest {
+        interface Matchers<R> {
+            toBeCloseToArray(array: ArrayLike): R
+        }
+    }
+}
 
 describe('degrees', () => {
     it('should be accurate', () => {
@@ -165,9 +191,20 @@ describe('times', () => {
         expect(vec3.equals(times(v1, 2), v2)).toBe(true);
         expect(vec3.equals(times(v1, 0), fill(0))).toBe(true);
     });
+});
 
-    it('should accept one argument', () => {
-        expect(vec3.equals(times(v1), v1)).toBe(true);
+describe('normalize', () => {
+    it('should normalize vectors of any dimensions', () => {
+        const u = vec(1, 2, 3);
+        const v = g_vec(4, 5, 6, 7);
+        const v2 = vec4.fromValues(4, 5, 6, 7);
+        expect(vec3.equals(vec3.normalize(u, u), normalize(vec(1, 2, 3)))).toBe(true);
+        expect(vec4.normalize(v2, v2)).toBeCloseToArray(g_normalize(v));
+    });
+
+    it('should return the null vector when v = fill(0)', () => {
+        const null_vec = fill(0);
+        expect(normalize(null_vec)).toBeCloseToArray(null_vec);
     });
 });
 
@@ -176,7 +213,7 @@ describe('centroid', () => {
     const v2 = vec(2, 4, 6);
 
     it('should find the middle of two vec3s', () => {
-        expect(vec3.equals(centroid(v1, v2), lerp3(v1, v2, 0.5))).toBe(true);
+        expect(vec3.equals(centroid(v1, v2), lerp(v1, v2, 0.5))).toBe(true);
     });
 
     it('should accept one argument', () => {
@@ -212,5 +249,39 @@ describe('collinear', () => {
         expect(collinear(a, times(a, -1))).toBe(true);
         expect(collinear(a, times(a, 0.12))).toBe(true);
         expect(collinear(a, times(a, 73))).toBe(true);
+    });
+});
+
+describe('getBoundingBox', () => {
+    const points: vec3[] = [
+        vec(0, 1, 0),
+        vec(2, 1, 0),
+        vec(0, 18, 27),
+        vec(-12, 3, 9)
+    ];
+
+    it('should compute the correct bounding box of a list of vectors', () => {
+        const { min, max } = getBoundingBox(...points);
+        expect(min).toEqual([-12, 1, 0]);
+        expect(max).toEqual([2, 18, 27]);
+    });
+});
+
+describe('mapBox', () => {
+
+    it('should map a box to another linearly', () => {
+
+        const box_from = {
+            min: vec(0, 0, 0),
+            max: vec(10, 10, 10)
+        };
+
+        const box_to = {
+            min: vec(5, 18, 7),
+            max: vec(200, 200, 200)
+        };
+
+        expect(mapBox(vec(0, 0, 0), box_from, box_to)).toEqual([5, 18, 7]);
+        expect(mapBox(vec(10, 5, 6), box_from, box_to)).toEqual([200, 109, 122.8]);
     });
 });

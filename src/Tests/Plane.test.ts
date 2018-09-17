@@ -1,5 +1,5 @@
 import { Plane } from "../Utils/Plane";
-import { vec, fill, times, collinear, centroid } from "../Utils/MathUtils";
+import { vec, fill, times, collinear, centroid } from "../Utils/Vec3Utils";
 import { vec3 } from "gl-matrix";
 
 describe('Plane', () => {
@@ -12,8 +12,8 @@ describe('Plane', () => {
     const n = vec(7, -5, -1);
 
     it('should create a plane from three points', () => {
-        const norm1 = p1.getNormal();
-        const norm2 = p2.getNormal();
+        const norm1 = p1.normal;
+        const norm2 = p2.normal;
         expect(collinear(norm1, n)).toBe(true);
         expect(collinear(norm2, n)).toBe(true);
         expect(vec3.equals(norm1, times(norm2, -1))).toBe(true);
@@ -26,7 +26,7 @@ describe('Plane', () => {
     });
 
     it('should give a normalized normal vector', () => {
-        expect(vec3.len(p1.getNormal())).toBeCloseTo(1);
+        expect(vec3.len(p1.normal)).toBeCloseTo(1);
     });
 
     it('should countain its constructing points', () => {

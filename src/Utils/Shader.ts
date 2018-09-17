@@ -1,4 +1,5 @@
-import { vec2, vec3, vec4, mat4 } from "gl-matrix";
+import { mat4, vec2, vec3, vec4 } from "gl-matrix";
+import { TextureInfo } from "./Texture";
 
 export interface ShaderSource {
     vertex: string,
@@ -13,15 +14,17 @@ export enum ShaderType {
 export default class Shader {
 
     private gl: WebGL2RenderingContext;
-    private vertex_shader: WebGLShader;
-    private fragment_shader: WebGLSampler;
-    private program: WebGLProgram;
+    private _vertex_shader: WebGLShader;
+    private _fragment_shader: WebGLSampler;
+    private _program: WebGLProgram;
+    private _texture_map: Map<string, number>;
 
     constructor(gl: WebGL2RenderingContext, source: ShaderSource) {
         this.gl = gl;
-        this.vertex_shader = this.createShader(this.gl.VERTEX_SHADER, source.vertex);
-        this.fragment_shader = this.createShader(this.gl.FRAGMENT_SHADER, source.fragment);
-        this.program = this.createProgram();
+        this._vertex_shader = this.createShader(this.gl.VERTEX_SHADER, source.vertex);
+        this._fragment_shader = this.createShader(this.gl.FRAGMENT_SHADER, source.fragment);
+        this._program = this.createProgram();
+        this._texture_map = new Map<string, number>();
     }
 
     private createShader(type: number, source: string): WebGLShader {
@@ -40,8 +43,8 @@ export default class Shader {
 
     private createProgram(): WebGLProgram {
         const program = this.gl.createProgram();
-        this.gl.attachShader(program, this.vertex_shader);
-        this.gl.attachShader(program, this.fragment_shader);
+        this.gl.attachShader(program, this._vertex_shader);
+        this.gl.attachShader(program, this._fragment_shader);
         this.gl.linkProgram(program);
 
         if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
@@ -54,19 +57,29 @@ export default class Shader {
     }
 
     public use(): void {
-        this.gl.useProgram(this.program);
+        this.gl.useProgram(this._program);
     }
 
-    public getProgram(): WebGLProgram {
-        return this.program;
+    public get program(): WebGLProgram {
+        return this._program;
     }
 
     public getAttribLocation(attribute: string): number {
-        return this.gl.getAttribLocation(this.program, attribute);
+        return this.gl.getAttribLocation(this._program, attribute);
     }
 
     public getUniformLocation(uniform: string): WebGLUniformLocation {
-        return this.gl.getUniformLocation(this.program, uniform);
+        return this.gl.getUniformLocation(this._program, uniform);
+    }
+
+    public attachTexture(name: string, boundTo: number): void {
+        this._texture_map.set(name, boundTo);
+    }
+
+    public bindTextures(): void {
+        for (const [name, boundTo] of this._texture_map) {
+            this.setInt(name, boundTo);
+        }
     }
 
     public setFloat(name: string, value: number): WebGLUniformLocation {
