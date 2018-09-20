@@ -4,7 +4,12 @@ import { mat4, vec3 } from "gl-matrix";
 import { colors } from "./ColorUtils";
 import Frustum from "./Frustum";
 import { sum, times, transform, normalize, vec } from "./Vec3Utils";
-import { Prism } from "../Map/IcoSphereFace";
+import { CanvasHelper } from "./CanvasHelper";
+import { TextHelper, PlotHelper } from "./TextUtils";
+import { TextureHelper } from "./TextureHelper";
+
+export type Helper = LineHelper | ArrowHelper | BoxHelper | FrustumHelper | PrismHelper
+    | CanvasHelper | TextHelper | TextureHelper |  PlotHelper;
 
 export type LineHelper = (model_view_proj: mat4, ...lines: Line[]) => void;
 export type ArrowHelper = (model_view_proj: mat4, ...arrows: Arrow[]) => void;
@@ -43,6 +48,16 @@ export interface Box {
     width: number,
     height: number,
     depth: number
+}
+
+export interface Prism {
+    [key: string]: vec3;
+    a1: vec3;
+    b1: vec3;
+    c1: vec3;
+    a2: vec3;
+    b2: vec3;
+    c2: vec3;
 }
 
 export function createLineHelper(gl: WebGL2RenderingContext, color = colors.green): LineHelper {

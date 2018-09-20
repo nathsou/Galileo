@@ -1,7 +1,7 @@
 import { mat4, vec3, vec4 } from "gl-matrix";
-import { clamp, combineMatrices, degrees, numFormat, radians, randomMat4, triangleHypotenuse } from "../Utils/MathUtils";
+import { clamp, combineMatrices, degrees, radians, randomMat4, triangleHypotenuse } from "../Utils/MathUtils";
 import { centroid, collinear, fill, lerp, normalize, prod, sub, sum, times, vec } from "../Utils/Vec3Utils";
-import { getBoundingBox, g_normalize, g_times, g_vec, mapBox } from "../Utils/VecUtils";
+import { getBoundingBox, g_normalize, g_vec, mapBox } from "../Utils/VecUtils";
 
 type ArrayLike = number[] | Float32Array;
 
@@ -57,58 +57,6 @@ describe('clamp', () => {
         expect(clamp(-1789, 0, 1000)).toBe(0);
         expect(clamp(1789, 0, Infinity)).toBe(1789);
         expect(clamp(-1789, -Infinity, 0)).toBe(-1789);
-    });
-});
-
-describe('numFormat', () => {
-    it('should not alter numbers with a string representation of length < max_length', () => {
-        expect(numFormat(1789, 10)).toBe('1789');
-        expect(numFormat(5.9722, 6)).toBe('5.9722');
-        expect(numFormat(-9.81, 5)).toBe('-9.81');
-        expect(numFormat(6.674e-11, 10)).toBe('6.674e-11');
-        expect(numFormat(2147483647, 100)).toBe('2147483647');
-    });
-
-    it('should format numbers with a maximum character count', () => {
-        expect(numFormat(2147483647, 8)).toBe('2.147e+9');
-        expect(numFormat(2147483647, 7)).toBe('2.15e+9');
-        expect(numFormat(2147483647, 6)).toBe('2.1e+9');
-        expect(numFormat(2147483647, 5)).toBe('2e+9');
-        expect(numFormat(2147483647, 4)).toBe('2e+9');
-        expect(numFormat(123.456, 3)).toBe('123');
-    });
-
-    it("should not end with '.'", () => {
-        expect(numFormat(123.456, 4)).toBe('123');
-        expect(numFormat(2042345, 5)).toBe('2e+6');
-    });
-
-    it('should throw an error if x cannot be represented with max_length characters', () => {
-        expect(() => numFormat(2305843009213693951, 4)).toThrow();
-        expect(() => numFormat(123, -1)).toThrow();
-        expect(() => numFormat(-123, 3)).toThrow();
-    });
-
-    it('should round to closest representation', () => {
-        expect(numFormat(2052345, 6)).toBe('2.1e+6');
-        expect(numFormat(2042345, 6)).toBe('2.0e+6');
-        expect(numFormat(123.456, 5)).toBe('123.5');
-        expect(numFormat(-123.456, 5)).toBe('-123');
-    });
-
-    it('should return null if an incorrect value of x is used', () => {
-        expect(numFormat(Infinity)).toBeNull();
-        expect(numFormat(-Infinity)).toBeNull();
-        expect(numFormat(NaN)).toBeNull();
-        expect(numFormat(null)).toBeNull();
-        expect(numFormat(undefined)).toBeNull();
-        ///@ts-ignore
-        expect(numFormat('1921')).toBeNull();
-    });
-
-    it("should return '0' if x === 0 and max_length > 0", () => {
-        expect(numFormat(0, 1)).toBe('0');
-        expect(numFormat(0, 10)).toBe('0');
     });
 });
 

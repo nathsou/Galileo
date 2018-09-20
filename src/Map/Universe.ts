@@ -14,13 +14,13 @@ export default class Universe {
         return planet.ID;
     }
 
-    public update(camera: Camera) {
+    public update(camera: Camera): void {
         for (const planet of this._planets.values()) {
             planet.update(camera);
         }
     }
 
-    public render(camera: Camera, mode?: number) {
+    public render(camera: Camera, mode?: number): void {
         for (const planet of this._planets.values()) {
             planet.render(camera, mode);
         }

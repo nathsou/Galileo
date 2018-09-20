@@ -1,11 +1,11 @@
-import { vec2, vec3 } from "gl-matrix";
-import { getBoundingBox, mapBox, g_prod } from "./VecUtils";
-import { createCanvasHelper } from "./CanvasUtils";
+import { vec2 } from "gl-matrix";
+import { createCanvasHelper } from "./CanvasHelper";
+import { getBoundingBox, g_prod, mapBox } from "./VecUtils";
 
 const text_ctx = document.createElement('canvas').getContext('2d');
 
-export type TextHelper = (text: string, pos: vec3) => { width: number, height: number };
-export type PlotHelper = (position: vec3, ...points: (vec2 | number[])[]) => void;
+export type TextHelper = (text: string, pos: vec2) => { width: number, height: number };
+export type PlotHelper = (position: vec2, ...points: (vec2 | number[])[]) => void;
 
 export interface TextOptions {
     color?: string,
@@ -22,7 +22,7 @@ function generateTextTexture(text: string, text_info: TextOptions): HTMLCanvasEl
         font_size: 35,
         font_family: 'monospace, sans-serif',
         margin: 5,
-        background_color: 'rgba(0, 0, 0, 255)',
+        background_color: 'rgba(0, 0, 0, 0)',
         ...text_info
     };
 
@@ -52,7 +52,7 @@ export function createTextHelper(gl: WebGL2RenderingContext, text_info: TextOpti
     let tex_cnv: HTMLCanvasElement;
     let last_text: string;
 
-    return (text: string, pos: vec3) => {
+    return (text: string, pos: vec2) => {
         if (last_text !== text) {
             last_text = text;
             tex_cnv = generateTextTexture(text, text_info);
@@ -94,7 +94,7 @@ export function createPlotHelper(gl: WebGL2RenderingContext, options: PlotOption
         ...options
     };
 
-    return (position: vec3, ...points: (vec2 | number[])[]) => {
+    return (position: vec2, ...points: (vec2 | number[])[]) => {
 
         if (options.normalized) {
             points = points.map(p => g_prod(p, [cnv.width, cnv.height]));

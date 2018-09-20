@@ -1,7 +1,7 @@
 import { ShaderSource } from "../../Utils/Shader";
 
 export const textShader: ShaderSource = {
-  vertex: `#version 300 es
+  vertex: `
     in vec4 position;
     in vec2 texcoords;
     
@@ -16,7 +16,7 @@ export const textShader: ShaderSource = {
     }
     `,
 
-  fragment: `#version 300 es
+  fragment: `
     precision mediump float;
     
     uniform sampler2D u_texture;

@@ -1,7 +1,7 @@
 import { ShaderSource } from "../../Utils/Shader";
 
 export const plainColorShader: ShaderSource = {
-    vertex: `#version 300 es
+    vertex: `
     in vec4 position;
     
     void main() {
@@ -9,13 +9,13 @@ export const plainColorShader: ShaderSource = {
     }
     `,
 
-    fragment: `#version 300 es
+    fragment: `
     precision mediump float;
 
-    uniform vec3 u_color;
+    uniform vec3 color;
     out vec4 frag_color;
     
     void main() {
-        frag_color = vec4(u_color, 1.0);
+        frag_color = vec4(color, 1.0);
     }`
 };

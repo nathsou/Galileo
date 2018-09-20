@@ -1,21 +1,24 @@
 
 # Galileo - WebGL Planet Renderer 🌐
 
-Lightweight procedurally generated planet renderer
-with continuous level of detail
+Lightweight planet renderer with continuous level of detail
 
 [![CDLOD Demo](dist/CDLOD.gif)](https://nathsou.github.io/Galileo/dist)
 
 ## Todo
 
+- [x] Implement other types of splittable spheres (QuadSphere partially done)
 - [ ] Add vegetation (and cities?)
 - [ ] Support smooth shading
 - [ ] Fix backface culling
 - [ ] Fix mipmaps
 - [ ] Better frustum culling
-- [ ] Text rendering
+- [x] Text rendering
 - [ ] Support multiple lights
 - [ ] Add planet type diversity
+- [ ] Add Wireframe mode
+- [ ] Optimize the amount of vertices in memory depending on the LOD
+- [ ] Fix alpha blending issues
 
 ## Resources
 

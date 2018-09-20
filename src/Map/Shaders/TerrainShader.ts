@@ -1,7 +1,7 @@
 import { ShaderSource } from "../../Utils/Shader";
 
 export const terrainShader: ShaderSource = {
-  vertex: `#version 300 es
+  vertex: `
     in vec2 position;
     
     out vec2 a_pos;
@@ -11,11 +11,12 @@ export const terrainShader: ShaderSource = {
         gl_Position = vec4(position, 0, 1);
     }`,
 
-  fragment: `#version 300 es
+  fragment: `
     precision mediump float;
 
     #define FREQUENCY 2.0
     #define OCTAVES 8
+    uniform float seed;
 
     in vec2 a_pos;
     out vec4 color;
@@ -35,7 +36,7 @@ export const terrainShader: ShaderSource = {
     vec4 permute(vec4 x){return mod(((x*34.0)+1.0)*x, 289.0);}
     vec4 taylorInvSqrt(vec4 r){return 1.79284291400159 - 0.85373472095314 * r;}
     
-    float snoise(vec3 v){
+    float snoise(vec3 v) {
       const vec2  C = vec2(1.0/6.0, 1.0/3.0) ;
       const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
     
@@ -57,9 +58,9 @@ export const terrainShader: ShaderSource = {
     // Permutations
       i = mod(i, 289.0 );
       vec4 p = permute( permute( permute(
-                 i.z + vec4(0.0, i1.z, i2.z, 1.0 ))
-               + i.y + vec4(0.0, i1.y, i2.y, 1.0 ))
-               + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
+                 i.z + vec4(0.0, i1.z, i2.z, 1.0))
+               + i.y + vec4(0.0, i1.y, i2.y, 1.0))
+               + i.x + vec4(0.0, i1.x, i2.x, 1.0));
     
     // Gradients
     // ( N*N points uniformly over a square, mapped onto an octahedron.)

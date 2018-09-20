@@ -1,22 +1,21 @@
-import IcoSphere from './Map/IcoSphere';
 import { mat4, vec2 } from 'gl-matrix';
-import Clock from './Utils/Clock';
 import Player from './Controls/Player';
-import { BoxHelper, createBoxHelper, FrustumHelper, createFrustumHelper, PrismHelper, createPrismHelper } from './Utils/Helpers';
-import { colors } from './Utils/ColorUtils';
-import { combineMatrices, average } from './Utils/MathUtils';
-import { fill, vec } from './Utils/Vec3Utils';
-import { TextHelper, createTextHelper, PlotHelper, createPlotHelper } from './Utils/TextUtils';
-import { g_vec } from './Utils/VecUtils';
-import Universe from './Map/Universe';
 import Planet from './Map/Planet';
-import Sphere from './Map/Sphere';
+import Universe from './Map/Universe';
+import Clock from './Utils/Clock';
+import { colors } from './Utils/ColorUtils';
+import { BoxHelper, createBoxHelper, createFrustumHelper, FrustumHelper } from './Utils/Helpers';
+import { average, combineMatrices } from './Utils/MathUtils';
+import { createTextureHelper, TextureHelper } from './Utils/TextureHelper';
+import { createPlotHelper, createTextHelper, PlotHelper, TextHelper } from './Utils/TextUtils';
+import { fill, vec } from './Utils/Vec3Utils';
+import { g_vec } from './Utils/VecUtils';
 
 export default class Main {
 
     private clock: Clock;
     private universe: Universe;
-    private _sphere: Sphere;
+    private _planet: Planet;
     private _player: Player;
     private mode = 0;
     private culling = true;
@@ -28,18 +27,18 @@ export default class Main {
 
     private drawFrustum: FrustumHelper;
     private drawBoundingBox: BoxHelper;
+    private drawTexture: TextureHelper;
     private drawText: TextHelper;
-    private drawPrism: PrismHelper;
     private drawPlot: PlotHelper;
 
     private static DRAWING_MODES = [
         WebGL2RenderingContext.TRIANGLES,
-        WebGL2RenderingContext.POINTS
+        WebGL2RenderingContext.POINTS,
+        WebGL2RenderingContext.LINES
     ];
 
     constructor(private gl: WebGL2RenderingContext) {
         this.clock = new Clock();
-
         this.universe = new Universe();
 
         const planet_ID = this.universe.add(new Planet(gl, {
@@ -51,8 +50,8 @@ export default class Main {
             }
         }));
 
-        this._sphere = this.universe.planets.get(planet_ID).sphere;
-        this._player = new Player({ position: vec(0, 0, this._sphere.radius * 3) });
+        this._planet = this.universe.planets.get(planet_ID);
+        this._player = new Player({ position: vec(0, 0, this._planet.radius * 3) });
 
         this._player.on('keydown', (ev: KeyboardEvent) => this.onKeyDown.call(this, ev));
         window.addEventListener('resize', () => {
@@ -62,12 +61,16 @@ export default class Main {
         this.setCulling(this.culling);
 
         this.drawFrustum = createFrustumHelper(gl);
-        this.drawBoundingBox = createBoxHelper(gl, colors.pink);
-        this.drawPrism = createPrismHelper(gl, colors.white);
+        this.drawBoundingBox = createBoxHelper(gl, colors.orange);
+        this.drawTexture = createTextureHelper(gl);
+
+        const text_color = '#0abde3';
+
         this.drawText = createTextHelper(gl, {
-            color: 'tomato',
+            color: text_color,
             font_size: 20,
-            font_family: 'monospace, sans-serif'
+            font_family: 'monospace, sans-serif',
+            background_color: 'rgba(0, 0, 0, 0)'
         });
 
         this.drawPlot = createPlotHelper(gl, {
@@ -75,14 +78,27 @@ export default class Main {
             height: 70,
             auto_scale: false,
             normalized: true,
-            background_color: 'black',
-            color: 'white'
+            background_color: 'rgba(0, 0, 0, 0)',
+            color: text_color
         });
+
+        this.setBlending();
+    }
+
+    private setBlending(enabled = true): void {
+        if (enabled) {
+            this.gl.enable(this.gl.BLEND);
+            this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+            this.gl.disable(this.gl.DEPTH_TEST);
+        } else {
+            this.gl.disable(this.gl.BLEND);
+            this.gl.enable(this.gl.DEPTH_TEST);
+        }
     }
 
     private computeModelViewProjMatrix(): mat4 {
         //const model = this.sphere.getModelMatrix();
-        const model = this._sphere.modelMatrix;
+        const model = this._planet.sphere.modelMatrix;
         const view = this._player.camera.viewMatrix;
         const proj = this._player.camera.projectionMatrix;
 
@@ -131,28 +147,48 @@ export default class Main {
             case 't': // show debug info
                 this.render_text = !this.render_text;
                 this.needs_redraw = true;
-                //Texture.openInWindow(terrainShader, 1024, 512);
                 break;
+
+            case 'h': // show height_map
+                if (this._planet.options.textures.height_map) {
+                    this.drawTexture(
+                        this._planet.options.textures.height_map,
+                        g_vec(0, 0),
+                        g_vec(this.gl.canvas.width, this.gl.canvas.height)
+                    );
+                }
+                break;
+            case 'n': // show normal map
+                if (this._planet.options.textures.normal_map) {
+                    this.drawTexture(
+                        this._planet.options.textures.normal_map,
+                        g_vec(0, 0),
+                        g_vec(this.gl.canvas.width, this.gl.canvas.height)
+                    );
+                }
+                break;
+
         }
     }
 
     private onResize(width: number, height: number): void {
         this._player.camera.aspectRatio = width / height;
-        this._sphere.updateLookUpTables(this._player.camera);
+        this._planet.sphere.updateLookUpTables(this._player.camera);
         this.needs_redraw = true;
     }
 
     private clearGL(): void {
         this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
-        this.gl.clearColor(0, 0, 0, 1);
+        // Set the backbuffer's alpha to 1.0
+        this.gl.clearColor(0, 0, 0, 1)
         this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-        this._sphere.render(this._player.camera, Main.DRAWING_MODES[this.mode]);
+        this._planet.render(this._player.camera, Main.DRAWING_MODES[this.mode]);
     }
 
     private updateFPS(delta: number): void {
-        const history_len = 120;
-        if (this.fps_history.length > history_len) {
-            this.fps_history.splice(0, this.fps_history.length - history_len);
+        const history_len = 60;
+        if (this.fps_history.length >= history_len) {
+            this.fps_history.splice(0, this.fps_history.length - history_len + 1);
         }
 
         this.fps_history.push(delta);
@@ -162,14 +198,14 @@ export default class Main {
         const delta = this.clock.getDelta();
 
         this.needs_redraw =
-            this._player.update(delta, this._sphere) ||
+            this._player.update(delta, this._planet.sphere) ||
             !this.update_on_move ||
             this.needs_redraw;
 
         if (!this.needs_redraw) return (this.needs_redraw = false);
 
         this.needs_redraw = false;
-        this._sphere.update(this._player.camera);
+        this._planet.update(this._player.camera)
 
         this.updateFPS(delta);
         this.clearGL();
@@ -180,53 +216,36 @@ export default class Main {
     }
 
     private renderText() {
+        this.setBlending(this.render_text);
+
         if (this.render_text) {
             const dims = this.drawText(
-                `patches: ${this._sphere.patch.instancesCount}`,
-                vec(0, 0, 0)
+                `faces: ${this._planet.sphere.faceCount}`,
+                g_vec(0, 0)
             );
 
             const avg_fps = (1000 / average(...this.fps_history)).toPrecision(2);
             const min_fps = (1000 / Math.max(...this.fps_history)).toPrecision(2);
 
-            this.drawText(`avg fps: ${avg_fps}`, vec(0, dims.height, 0));
-            this.drawText(`min fps: ${min_fps}`, vec(0, dims.height * 2, 0));
+            this.drawText(`avg fps: ${avg_fps}`, g_vec(0, dims.height));
+            this.drawText(`min fps: ${min_fps}`, g_vec(0, dims.height * 2));
 
             //normalize fps data
             const points: vec2[] = this.fps_history.map((fps, i) =>
                 g_vec(i / this.fps_history.length, fps / 60)
             );
 
-            this.drawPlot(vec(0, dims.height * 3, 0), ...points);
+            this.drawPlot(g_vec(0, dims.height * 3), ...points);
         }
     }
 
     private debug(): void {
         if (this.render_debug) {
             const mvp = this.computeModelViewProjMatrix();
-            this.drawFrustum(mvp, this._player.camera.frustum);
+            //this.drawFrustum(mvp, this._player.camera.frustum);
 
-            /*
-            if (this.debug_prisms) {
-                const prisms: Prism[] = [];
-
-                const getPrisms = (children: IcoSphereFace[]): void => {
-                    for (const child of children) {
-                        prisms.push(child.boundingPrism);
-
-                        if (child.hasChildren()) {
-                            getPrisms(child.children);
-                        }
-                    }
-                };
-
-                getPrisms(this._sphere.faces);
-                this.drawPrism(mvp, ...prisms);
-            }
-            */
-
-            mat4.scale(mvp, mvp, fill(1 / this._sphere.radius));
-            this.drawBoundingBox(mvp, this._sphere.boundingBox);
+            mat4.scale(mvp, mvp, fill(1 / this._planet.radius));
+            this.drawBoundingBox(mvp, this._planet.sphere.boundingBox);
         }
     }
 

@@ -1,5 +1,4 @@
 import { mat4, vec2, vec3, vec4 } from "gl-matrix";
-import { TextureInfo } from "./Texture";
 
 export interface ShaderSource {
     vertex: string,
@@ -13,18 +12,43 @@ export enum ShaderType {
 
 export default class Shader {
 
+    private static readonly version = '300 es';
+
     private gl: WebGL2RenderingContext;
     private _vertex_shader: WebGLShader;
     private _fragment_shader: WebGLSampler;
     private _program: WebGLProgram;
     private _texture_map: Map<string, number>;
+    private _definitions: string;
+    private _source: ShaderSource;
+    private _compiled = false;
 
     constructor(gl: WebGL2RenderingContext, source: ShaderSource) {
         this.gl = gl;
-        this._vertex_shader = this.createShader(this.gl.VERTEX_SHADER, source.vertex);
-        this._fragment_shader = this.createShader(this.gl.FRAGMENT_SHADER, source.fragment);
-        this._program = this.createProgram();
+        this._source = source;
         this._texture_map = new Map<string, number>();
+        this._definitions = '';
+    }
+
+    private preprocess(source: string): string {
+        return `#version ${Shader.version}
+        ${this._definitions}
+        ${source}
+        `;
+    }
+
+    public compile(): void {
+        if (this._compiled) return;
+        const vertex = this.preprocess(this._source.vertex);
+        const fragment = this.preprocess(this._source.fragment);
+        this._vertex_shader = this.createShader(this.gl.VERTEX_SHADER, vertex);
+        this._fragment_shader = this.createShader(this.gl.FRAGMENT_SHADER, fragment);
+        this._program = this.createProgram();
+        this._compiled = true;
+    }
+
+    public define(name: string, value: string = ''): void {
+        this._definitions += `\n#define ${name} ${value}`;
     }
 
     private createShader(type: number, source: string): WebGLShader {
@@ -56,7 +80,9 @@ export default class Shader {
         return program;
     }
 
+
     public use(): void {
+        this.compile();
         this.gl.useProgram(this._program);
     }
 

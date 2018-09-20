@@ -1,14 +1,13 @@
+import { TextureInfo } from "./Texture";
+import { vec2, mat4 } from "gl-matrix";
 import Shader from "./Shader";
 import { textShader } from "../Map/Shaders/TextShader";
-import { vec3, mat4 } from "gl-matrix";
 import { vec, div } from "./Vec3Utils";
+import { g_vec } from "./VecUtils";
 
-export type CanvasHelper = (canvas: HTMLCanvasElement, pos: vec3) => void;
+export type TextureHelper = (tex: TextureInfo, position: vec2, dimensions?: vec2) => void;
 
-export function createCanvasHelper(
-    gl: WebGL2RenderingContext
-): CanvasHelper {
-
+export function createTextureHelper(gl: WebGL2RenderingContext): TextureHelper {
     const shader = new Shader(gl, textShader);
     shader.use();
 
@@ -55,17 +54,19 @@ export function createCanvasHelper(
     gl.bindVertexArray(null);
 
 
-    //create a WebGLTexture from the canvas
-    const tex = gl.createTexture();
+    return (tex: TextureInfo, position: vec2, dimensions?: vec2) => {
 
-    return (canvas: HTMLCanvasElement, position: vec3) => {
-        gl.activeTexture(gl.TEXTURE2);
-        gl.bindTexture(gl.TEXTURE_2D, tex);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
-        gl.generateMipmap(gl.TEXTURE_2D);
+
+        /*         
+        const tr = mat4.create();
+        mat4.ortho(tr, 0, gl.canvas.width, gl.canvas.height, 0, -1, 1);
+        mat4.translate(tr, tr, position);
+        mat4.scale(tr, tr, [canvas.width, canvas.height, 1]); 
+        */
+
+        if (!dimensions) {
+            dimensions = g_vec(tex.width, tex.height);
+        }
 
         const transfo = mat4.create();
 
@@ -73,16 +74,26 @@ export function createCanvasHelper(
             transfo,
             transfo,
             div(
-                vec(position[0], gl.canvas.height - canvas.height - position[1], 0),
+                vec(position[0], gl.canvas.height - dimensions[1] - position[1], 0),
                 vec(gl.canvas.width, gl.canvas.height, 1)
             )
         );
 
-        mat4.scale(transfo, transfo, [canvas.width / gl.canvas.width, canvas.height / gl.canvas.height, 1]);
+        mat4.scale(
+            transfo,
+            transfo,
+            [
+                dimensions[0] / gl.canvas.width,
+                dimensions[1] / gl.canvas.height,
+                1
+            ]
+        );
+
+        //console.log(`[${transfo.join(', ')}] - [${tr.join(', ')}]`);
 
         shader.use();
-        gl.bindTexture(gl.TEXTURE_2D, tex);
-        shader.setInt('u_texture', 2);
+        gl.bindTexture(gl.TEXTURE_2D, tex.handle);
+        shader.setInt('u_texture', tex.boundTo);
         shader.setMat4('transfo', transfo);
 
         gl.bindVertexArray(VAO);
@@ -90,6 +101,6 @@ export function createCanvasHelper(
 
         gl.bindVertexArray(null);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
-        gl.bindTexture(gl.TEXTURE_2D, null);
+        //gl.bindTexture(gl.TEXTURE_2D, null);
     }
 }

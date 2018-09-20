@@ -1,3 +1,18 @@
+const vec = (x, y) => ({
+    x,
+    y
+});
+
+const add = (a, b) => vec(a.x + b.x, a.y + b.y);
+const sum = (...vecs) => vecs.reduce((p, c) => add(p, c), vec(0, 0));
+const sub = (a, b) => vec(a.x - b.x, a.y - b.y);
+const mul = (a, b) => vec(a.x * b.x, a.y * b.y);
+const times = (a, k) => mul(a, vec(k, k));
+const dot = (u, v) => u.x * v.x + u.y * v.y;
+const len = v => dot(v, v) ** 0.5;
+const normalize = v => times(v, 1 / len(v));
+
+
 const cnv = document.querySelector('#cnv');
 const ctx = cnv.getContext('2d');
 cnv.width = 800;
@@ -62,7 +77,7 @@ function morphVertex(patch, morph_factor) {
         } = vert;
 
         return scaleToCanvas(sum(A, times(R, pos.x), times(S, pos.y),
-            times(sum(times(R, morph.x), times(S, morph.y)), 1 - morph_factor)));
+            times(sum(times(R, morph.x), times(S, morph.y)), morph_factor)));
     };
 }
 
@@ -101,34 +116,6 @@ function drawTriangles(ctx, triangles, stroke_style = 'black', fill_style = 'whi
     });
 }
 
-
-function vec(x, y) {
-    return {
-        x,
-        y
-    };
-}
-
-function add(a, b) {
-    return vec(a.x + b.x, a.y + b.y);
-}
-
-function sum(...vecs) {
-    return vecs.reduce((p, c) => add(p, c), vec(0, 0));
-}
-
-function sub(a, b) {
-    return vec(a.x - b.x, a.y - b.y);
-}
-
-function mul(a, b) {
-    return vec(a.x * b.x, a.y * b.y);
-}
-
-function times(a, k) {
-    return mul(a, vec(k, k));
-}
-
 function createPatch(a, b, c) {
     return {
         A: a,
@@ -137,19 +124,54 @@ function createPatch(a, b, c) {
     };
 }
 
+const m = createTriangleMorph([
+        vec(0, 0),
+        vec(1, 0),
+        vec(0.5, 1)
+    ],
+    [
+        vec(0.5, 0),
+        vec(0.75, 0.5),
+        vec(0.25, 0.5)
+    ]
+);
+
+console.log(m);
+
+
 function createTriangleMorph(from, to) {
     const [a, b, c] = from;
     const [d, e, f] = to;
+    const R = normalize(sub(b, a));
+    const S = normalize(sub(c, a));
+
+    const project = v => vec(dot(v, R), dot(v, S));
+
+    console.log(project(R));
+    console.log(project(S));
+
     return [{
-            pos: vec(0, 0), //a
+            pos: a,
+            morph: vec(0, 0)
+        },
+        {
+            pos: b,
+            morph: vec(0, 0)
+        },
+        {
+            pos: c,
+            morph: vec(0, 0)
+        },
+        {
+            pos: d, //a
             morph: sub(d, a)
         },
         {
-            pos: vec(1, 0), //b
+            pos: e, //b
             morph: sub(e, b)
         },
         {
-            pos: vec(0, 1), //c
+            pos: f, //c
             morph: sub(f, c)
         }
     ];

@@ -1,7 +1,7 @@
 import { ShaderSource } from "../../Utils/Shader";
 
 export const normalMapShader: ShaderSource = {
-    vertex: `#version 300 es
+    vertex: `
     in vec2 position;
 
     out vec2 a_pos;
@@ -13,10 +13,10 @@ export const normalMapShader: ShaderSource = {
     `,
 
 
-    fragment: `#version 300 es
+    fragment: `
     precision mediump float;
 
-    //#define USE_SOBEL
+    #define USE_SOBEL
     #define SENSITIVITY 0.9f
     
     in vec2 a_pos;

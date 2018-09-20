@@ -1,9 +1,9 @@
 import { ShaderSource } from "../../Utils/Shader";
 
 export const textureShader: ShaderSource = {
-    vertex: `#version 300 es
+    vertex: `
     in vec2 position;
-    in vec2 tex_coords;
+    
     
     out vec2 uv;
     
@@ -13,7 +13,7 @@ export const textureShader: ShaderSource = {
     }
     `,
 
-    fragment: `#version 300 es
+    fragment: `
     precision mediump float;
 
     out vec4 frag_color;

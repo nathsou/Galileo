@@ -1,21 +1,19 @@
-import { vec3, mat4 } from "gl-matrix";
+import { mat4, vec3 } from "gl-matrix";
 import Camera from "../Controls/Camera";
-import { radians } from "./MathUtils";
-import { sum, times, transform } from "./Vec3Utils";
+import { createLines, Line } from "./Helpers";
 import { Plane } from "./Plane";
-import { Line, createLines } from "./Helpers";
-import { Prism } from "../Map/IcoSphereFace";
+import { sum, times, transform } from "./Vec3Utils";
 
 export default class Frustum {
 
-    private camera: Camera;
-    private planes: Plane[];
+    private _camera: Camera;
+    private _planes: Plane[];
 
     private debug_lines: Line[];
 
     constructor(camera: Camera) {
-        this.camera = camera;
-        this.planes = [];
+        this._camera = camera;
+        this._planes = [];
     }
 
     public update(inverse_model_matrix: mat4): void {
@@ -24,21 +22,21 @@ export default class Frustum {
         const world_inv = inverse_model_matrix;
 
         //TODO: Fix frustum culling
-        const normHalfWidth = Math.tan(this.camera.FOV); //+ radians(20));
-        //const normHalfWidth = Math.tan(radians(25));
-        const aspectRatio = this.camera.aspectRatio;
+        const normHalfWidth = Math.tan(this._camera.FOV); //+ radians(20));
+        // const normHalfWidth = Math.tan(radians(25));
+        const aspectRatio = this._camera.aspectRatio;
 
         //calculate width and height for near and far plane
-        const nearHW = normHalfWidth * this.camera.near;
+        const nearHW = normHalfWidth * this._camera.near;
         const nearHH = nearHW / aspectRatio;
-        const farHW = normHalfWidth * this.camera.far * 0.5;
+        const farHW = normHalfWidth * this._camera.far * 0.5;
         const farHH = farHW / aspectRatio;
 
-        const basis = this.camera.basis;
+        const basis = this._camera.basis;
 
         //calculate near and far plane centers
-        const fCenter = sum(this.camera.position, times(basis.front, this.camera.far * 0.5));
-        const nCenter = sum(this.camera.position, times(basis.front, this.camera.near));
+        const fCenter = sum(this._camera.position, times(basis.front, this._camera.far * 0.5));
+        const nCenter = sum(this._camera.position, times(basis.front, this._camera.near));
 
         //construct corners of the near plane in the culled objects world space
         const na = transform(sum(nCenter, times(basis.up, nearHH), times(basis.right, -nearHW)), world_inv);
@@ -52,7 +50,7 @@ export default class Frustum {
         const fd = transform(sum(fCenter, times(basis.up, -farHH), times(basis.right, farHW)), world_inv);
 
         //winding in an outside perspective so the cross product creates normals pointing inward
-        this.planes = [
+        this._planes = [
             new Plane(na, nb, nc),//Near
             new Plane(fb, fa, fd),//Far Maybe skip this step? most polys further away should already be low res
             new Plane(fa, na, fc),//Left
@@ -80,13 +78,13 @@ export default class Frustum {
         ]);
     }
 
-    public getPlanes(): Plane[] {
-        return this.planes;
+    public get planes(): Plane[] {
+        return this._planes;
     }
 
     public containsPoint(point: vec3): boolean {
 
-        for (let plane of this.planes) {
+        for (let plane of this._planes) {
             if (plane.distanceToPoint(point) < 0) return false;
         }
 
@@ -96,7 +94,7 @@ export default class Frustum {
     }
 
     public containsTriangle(a: vec3, b: vec3, c: vec3): boolean {
-        for (const plane of this.planes) {
+        for (const plane of this._planes) {
             if (plane.distanceToPoint(a) < 0 &&
                 plane.distanceToPoint(b) < 0 &&
                 plane.distanceToPoint(c) < 0
@@ -108,9 +106,36 @@ export default class Frustum {
         return true;
     }
 
-    public containsPrism(prism: Prism): boolean {
-        return this.containsTriangle(prism.a1, prism.b1, prism.c1) ||
-            this.containsTriangle(prism.a2, prism.b2, prism.c2);
+    public containsRectangle(a: vec3, b: vec3, c: vec3, d: vec3): boolean {
+        for (const plane of this._planes) {
+            if (plane.distanceToPoint(a) < 0 &&
+                plane.distanceToPoint(b) < 0 &&
+                plane.distanceToPoint(c) < 0 &&
+                plane.distanceToPoint(d) < 0
+            ) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+
+    /**
+     * Returns whether the volume described by its vertices is contained in the frustum
+     *
+     * @param {vec3[]} vertices
+     * @returns {boolean}
+     * @memberof Frustum
+     */
+    public containsVolume(vertices: vec3[]): boolean {
+        for (const plane of this._planes) {
+            if (vertices.every(v => plane.distanceToPoint(v) < 0)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public getDebugLines(): Line[] {

@@ -14,7 +14,9 @@ export interface TextureInfo {
 
 export namespace Texture {
 
-    let id = 0;
+    // 0 --> Text Rendering Textures
+    let id = 1;
+
     //generate a Webgl.Texture from a given shader
     export function generate(
         gl: WebGL2RenderingContext,
@@ -26,6 +28,8 @@ export namespace Texture {
         if (!(shader instanceof Shader)) {
             shader = new Shader(gl, shader);
         }
+
+        shader.compile();
 
         const vertices = [
             -1.0, -1.0,
@@ -107,7 +111,10 @@ export namespace Texture {
 
     export function bind(gl: WebGL2RenderingContext, tex: TextureInfo, to: number) {
         gl.bindTexture(gl.TEXTURE0 + to, tex.handle);
+        tex.boundTo = to;
     }
+
+
 
     // Draw the texture onto a canvas
     export function toCanvas(source: Shader | ShaderSource, width: number, height: number): HTMLCanvasElement {
@@ -200,16 +207,20 @@ export namespace Texture {
     ): TextureInfo {
         const shader = new Shader(gl, plainColorShader);
         shader.use();
-        shader.setVec3('u_color', color);
+        shader.setVec3('color', color);
         return Texture.generate(gl, shader, width, height);
     }
 
     export function generateHeightMap(
         gl: WebGL2RenderingContext,
         width: number,
-        height: number
+        height: number,
+        seed = Math.random() * 10000
     ): TextureInfo {
-        return Texture.generate(gl, terrainShader, width, height);
+        const shader = new Shader(gl, terrainShader);
+        shader.compile();
+        shader.setFloat('seed', seed);
+        return Texture.generate(gl, shader, width, height);
     }
 
     export function generateColorMap(
@@ -226,7 +237,6 @@ export namespace Texture {
         gl: WebGL2RenderingContext,
         height_map: TextureInfo
     ): TextureInfo {
-        //Texture.bind(gl, height_map, 1);
         const shader = new Shader(gl, normalMapShader);
         shader.use();
         shader.setInt('height_map', height_map.boundTo);

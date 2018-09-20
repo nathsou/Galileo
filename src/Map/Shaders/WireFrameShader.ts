@@ -1,7 +1,7 @@
 import { ShaderSource } from "../../Utils/Shader";
 
 export const wireFrameShader: ShaderSource = {
-    vertex: `#version 300 es
+    vertex: `
     in vec3 position;
 
     uniform mat4 model_view_proj;
@@ -11,7 +11,7 @@ export const wireFrameShader: ShaderSource = {
 	}
     `,
 
-    fragment: `#version 300 es
+    fragment: `
     precision mediump float;
 
     uniform vec3 color;

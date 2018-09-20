@@ -5,8 +5,7 @@ import KeyboardMouseController from "./KeyboardMouseController";
 import { vec3, quat } from 'gl-matrix';
 import { radians, getNormalizedAltitude } from '../Utils/MathUtils';
 import { fill } from '../Utils/Vec3Utils';
-import IcoSphere from '../Map/IcoSphere';
-import Sphere from '../Map/Sphere';
+import Sphere from '../Map/Sphere/Sphere';
 
 export enum PlayerControls { MOUSE_KEYBOARD } //TODO: VR_CONTROLLER, GAMEPAD...
 
