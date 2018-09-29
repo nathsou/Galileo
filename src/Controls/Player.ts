@@ -1,11 +1,10 @@
+import { quat, vec3 } from 'gl-matrix';
+import Sphere from '../Map/Sphere/Sphere';
+import { getNormalizedAltitude, radians } from '../Utils/MathUtils';
+import { fill } from '../Utils/Vec3Utils';
 import Camera from './Camera';
-import EventEmitter from '../Utils/EventEmitter';
 import Controller from "./Controller";
 import KeyboardMouseController from "./KeyboardMouseController";
-import { vec3, quat } from 'gl-matrix';
-import { radians, getNormalizedAltitude } from '../Utils/MathUtils';
-import { fill } from '../Utils/Vec3Utils';
-import Sphere from '../Map/Sphere/Sphere';
 
 export enum PlayerControls { MOUSE_KEYBOARD } //TODO: VR_CONTROLLER, GAMEPAD...
 
@@ -13,24 +12,25 @@ export interface PlayerOptions {
     readonly position?: vec3,
     readonly orientation?: quat,
     readonly FOV?: number,
-    readonly view_distance?: number,
+    readonly max_view_distance?: number,
+    readonly min_view_distance?: number,
     readonly controls?: PlayerControls
 }
 
-export default class Player extends EventEmitter {
+export default class Player {
 
     private _camera: Camera;
     private _controller: Controller;
     private readonly _options: PlayerOptions;
 
     constructor(options: PlayerOptions, domElement: HTMLElement | Document = document) {
-        super();
 
         this._options = {
             position: fill(0),
             orientation: quat.create(),
             FOV: radians(45),
-            view_distance: 20000000,
+            max_view_distance: 299_792_458, // 1 light second
+            min_view_distance: 0.1, // 1 light second
             controls: PlayerControls.MOUSE_KEYBOARD,
             ...options
         };
@@ -39,8 +39,8 @@ export default class Player extends EventEmitter {
             this._options.position,
             this._options.FOV,
             window.innerWidth / window.innerHeight,
-            0.1,
-            this._options.view_distance
+            this._options.min_view_distance,
+            this._options.max_view_distance
         );
 
         this._camera.orientation = this._options.orientation;
@@ -53,19 +53,12 @@ export default class Player extends EventEmitter {
             case PlayerControls.MOUSE_KEYBOARD:
             default:
                 this._controller = new KeyboardMouseController(this._camera, domElement);
-
-                this.bindEvent(this._controller, 'move');
-                this.bindEvent(this._controller, 'turn');
-                this.bindEvent(this._controller, 'keydown');
         }
     }
 
-    //returns whether or not the player has moved during this update
-    public update(delta: number, sphere: Sphere): boolean {
-        const normalizer_altitude = getNormalizedAltitude(this.position, sphere.center, sphere.radius);
-        const moved = this._controller.update(delta, normalizer_altitude);
-        if (moved) this._camera.updateFrustum(sphere.inverseModelMatrix);
-        return moved;
+    //returns whether or not the player has moved dusring this update
+    public update(delta: number, speed_factor = 1): boolean {
+        return this._controller.update(delta, speed_factor);
     }
 
     public get camera(): Camera {
@@ -83,9 +76,4 @@ export default class Player extends EventEmitter {
     public get controller(): Controller {
         return this._controller;
     }
-
-    public dispose(): void {
-        this._controller.dispose();
-    }
-
 }

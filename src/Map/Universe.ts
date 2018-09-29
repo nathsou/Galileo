@@ -3,20 +3,20 @@ import Camera from "../Controls/Camera";
 
 export default class Universe {
 
-    private _planets: Map<number, Planet>;
+    private _planets: Planet[];
 
     constructor() {
-        this._planets = new Map<number, Planet>();
+        this._planets = [];
     }
 
-    public add(planet: Planet): number {
-        this._planets.set(planet.ID, planet);
-        return planet.ID;
+    public add(...planets: Planet[]): void {
+        this._planets.push(...planets);
     }
 
     public update(camera: Camera): void {
-        for (const planet of this._planets.values()) {
+        for (const planet of this._planets) {
             planet.update(camera);
+            planet.sphere.updateFrustum();
         }
     }
 
@@ -26,7 +26,7 @@ export default class Universe {
         }
     }
 
-    public get planets(): Map<number, Planet> {
+    public get planets(): Planet[] {
         return this._planets;
     }
 

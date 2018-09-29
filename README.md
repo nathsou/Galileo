@@ -7,18 +7,19 @@ Lightweight planet renderer with continuous level of detail
 
 ## Todo
 
-- [x] Implement other types of splittable spheres (QuadSphere partially done)
+- [x] Implement other types of splittable spheres (QuadSphere done)
 - [ ] Add vegetation (and cities?)
-- [ ] Support smooth shading
+- [x] Support smooth shading
 - [ ] Fix backface culling
-- [ ] Fix mipmaps
-- [ ] Better frustum culling
+- [x] Fix mipmaps
+- [x] Better frustum culling
 - [x] Text rendering
 - [ ] Support multiple lights
 - [ ] Add planet type diversity
 - [ ] Add Wireframe mode
 - [ ] Optimize the amount of vertices in memory depending on the LOD
-- [ ] Fix alpha blending issues
+- [x] Fix alpha blending issues
+- [ ] Compute TBN vectors on the CPU using transform feedback
 
 ## Resources
 

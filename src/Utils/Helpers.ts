@@ -3,14 +3,16 @@ import { wireFrameShader } from "../Map/Shaders/WireFrameShader";
 import { mat4, vec3 } from "gl-matrix";
 import { colors } from "./ColorUtils";
 import Frustum from "./Frustum";
-import { sum, times, transform, normalize, vec } from "./Vec3Utils";
+import { sum, times, transform, normalize, vec, Vec3Like } from "./Vec3Utils";
 import { CanvasHelper } from "./CanvasHelper";
 import { TextHelper, PlotHelper } from "./TextUtils";
-import { TextureHelper } from "./TextureHelper";
+import { TextureHelper } from "./TextureUtils/TextureHelper";
+import { pointShader } from "../Map/Shaders/PointShader";
 
 export type Helper = LineHelper | ArrowHelper | BoxHelper | FrustumHelper | PrismHelper
-    | CanvasHelper | TextHelper | TextureHelper |  PlotHelper;
+    | CanvasHelper | TextHelper | TextureHelper | PlotHelper;
 
+export type PointHelper = (model_view_proj: mat4, ...points: Vec3Like[]) => void;
 export type LineHelper = (model_view_proj: mat4, ...lines: Line[]) => void;
 export type ArrowHelper = (model_view_proj: mat4, ...arrows: Arrow[]) => void;
 export type BoxHelper = (model_view_proj: mat4, ...boxes: Box[]) => void;
@@ -60,6 +62,49 @@ export interface Prism {
     c2: vec3;
 }
 
+export function createPointHelper(gl: WebGL2RenderingContext, color = colors.red): PointHelper {
+
+    const shader = new Shader(gl, pointShader);
+    shader.use();
+
+    const position_attrib = shader.getAttribLocation('position');
+
+    //Setup the position attribute
+    const VAO = gl.createVertexArray();
+    const VBO = gl.createBuffer();
+
+    gl.bindVertexArray(VAO);
+    gl.bindBuffer(gl.ARRAY_BUFFER, VBO);
+    gl.vertexAttribPointer(position_attrib, 3, gl.FLOAT, false, 3 * 4, 0);
+    gl.enableVertexAttribArray(position_attrib);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    gl.bindVertexArray(null);
+
+    return (model_view_proj: mat4, ...points: Vec3Like[]) => {
+
+        const vertices = new Float32Array(points.length * 3);
+        points.forEach((p, i) => {
+            vertices[3 * i] = p[0];
+            vertices[3 * i + 1] = p[1];
+            vertices[3 * i + 2] = p[2];
+        });
+
+        shader.use();
+        gl.bindBuffer(gl.ARRAY_BUFFER, VBO);
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+        shader.setMat4('model_view_proj', model_view_proj);
+        shader.setVec3('color', color);
+        shader.bindUniforms();
+
+        gl.bindVertexArray(VAO);
+        gl.drawArrays(gl.POINTS, 0, vertices.length / 3);
+
+        gl.bindVertexArray(null);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    };
+}
+
 export function createLineHelper(gl: WebGL2RenderingContext, color = colors.green): LineHelper {
 
     const shader = new Shader(gl, wireFrameShader);
@@ -79,18 +124,19 @@ export function createLineHelper(gl: WebGL2RenderingContext, color = colors.gree
     gl.bindVertexArray(null);
 
     return (model_view_proj: mat4, ...lines: Line[]) => {
-        shader.use();
-        gl.bindBuffer(gl.ARRAY_BUFFER, VBO);
 
         const vertices: number[] = [];
         lines.forEach((line: Line) => {
             vertices.push(...line.from, ...line.to);
         });
 
+        shader.use();
+        gl.bindBuffer(gl.ARRAY_BUFFER, VBO);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
 
         shader.setMat4('model_view_proj', model_view_proj);
         shader.setVec3('color', color);
+        shader.bindUniforms();
 
         gl.bindVertexArray(VAO);
         gl.drawArrays(gl.LINES, 0, vertices.length / 3);
@@ -147,7 +193,7 @@ export function createRectangle(
     };
 }
 
-//Truncated square pyramid
+// Truncated square pyramid
 export function createSquareFrustum(front: RectangleCoords, back: RectangleCoords): Line[] {
     return createLines([
         front.top_left, front.top_right,
@@ -182,8 +228,8 @@ export function createBox(box: Box): Line[] {
         height: box.height
     });
 
-    //A box is a special case of a square frustum 
-    //(where the dimensions of the front and back rectangles are the same)
+    // A box is a special case of a square frustum 
+    // (where the dimensions of the front and back rectangles are the same)
     return createSquareFrustum(front, back);
 }
 

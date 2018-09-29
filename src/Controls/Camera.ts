@@ -1,6 +1,5 @@
-import { vec3, mat4, quat } from "gl-matrix";
-import { sum, rotate, normalize, cross } from "../Utils/Vec3Utils";
-import Frustum from "../Utils/Frustum";
+import { mat4, quat, vec3 } from "gl-matrix";
+import { cross, rotate, sum } from "../Utils/Vec3Utils";
 
 export interface Basis {
     up: vec3;
@@ -20,7 +19,6 @@ export default class Camera {
 
     private _basis: Basis;
     private _orientation: quat;
-    private _frustum: Frustum;
 
     constructor(pos: vec3, FOV: number, aspect: number, near: number, far: number) {
         this._position = pos;
@@ -37,12 +35,10 @@ export default class Camera {
         this._basis = {
             up: vec3.fromValues(0, 1, 0),
             right: vec3.fromValues(1, 0, 0),
-            front: vec3.fromValues(0, 0, -1)
+            front: vec3.fromValues(0, 0, 1)
         };
 
         this._orientation = quat.create();
-
-        this._frustum = new Frustum(this);
     }
 
     private updateProjectionMatrix(): void {
@@ -59,9 +55,12 @@ export default class Camera {
         vec3.add(this._position, this._position, delta_pos);
     }
 
-    public lookAt(target: vec3, up: vec3): void {
-        const t = sum(this._position, target);
-        mat4.lookAt(this._view_matrix, this._position, t, up);
+    public updateViewMatrix(): void {
+        this.lookAt(sum(this._position, this._basis.front));
+    }
+
+    public lookAt(target: vec3): void {
+        mat4.lookAt(this._view_matrix, this._position, target, this._basis.up);
     }
 
     public get projectionMatrix(): mat4 {
@@ -115,20 +114,10 @@ export default class Camera {
         this.updateBasis();
     }
 
-    //frustum methods
-
-    public get frustum(): Frustum {
-        return this._frustum;
-    }
-
-    public updateFrustum(inv_model_matrix: mat4): void {
-        this._frustum.update(inv_model_matrix);
-    }
-
     private updateBasis(): void {
-        this._basis.front = rotate([0, 0, -1], this._orientation);
+        this._basis.front = rotate([0, 0, 1], this._orientation);
         this._basis.right = rotate([1, 0, 0], this._orientation);
-        this._basis.up = cross(this._basis.right, this._basis.front);
+        this._basis.up = cross(this._basis.front, this._basis.right);
     }
 
     public get basis(): Basis {

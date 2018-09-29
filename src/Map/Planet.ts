@@ -1,8 +1,8 @@
 import { vec3 } from "gl-matrix";
 import Camera from "../Controls/Camera";
 import Shader, { ShaderSource } from "../Utils/Shader";
-import { Texture, TextureInfo } from "../Utils/Texture";
-import { earthShader } from "./Shaders/EarthShader";
+import { TextureInfo } from "../Utils/TextureUtils/Texture";
+import { planetShader } from "./Shaders/PlanetShader";
 import IcoSphere from "./Sphere/IcoSphere/IcoSphere";
 import QuadSphere from "./Sphere/QuadSphere/QuadSphere";
 import Sphere, { SphereOptions } from "./Sphere/Sphere";
@@ -40,29 +40,42 @@ export default class Planet {
             sphere_options: {},
             textures: {},
             sphere_type: SphereType.IcoSphere,
-            flat_shaded: true,
+            flat_shaded: false,
             ...options
         };
 
-
         this.initShader(shader);
+        this.initSphere();
+        this.initTextures();
+    }
 
-        if (this._options.textures.height_map === undefined) {
-            const height_map = Texture.generateHeightMap(gl, 1024, 512);
-            const normal_map = Texture.generateNormalMap(gl, height_map);
-            this._options.textures.height_map = height_map;
-            this._options.textures.normal_map = normal_map;
-            this._shader.attachTexture('height_map', height_map.boundTo);
-            this._shader.attachTexture('normal_map', normal_map.boundTo);
+    private initTextures(): void {
+        if (this._options.textures.height_map !== undefined) {
+            this._shader.registerTexture('height_map', this._options.textures.height_map.bound_to);
+            this._shader.define('HEIGHT_MAP');
         }
 
-        this.initSphere();
+        if (this._options.textures.normal_map !== undefined) {
+            this._shader.registerTexture('normal_map', this._options.textures.normal_map.bound_to);
+            this._shader.define('NORMAL_MAP');
+        } else if (!this._options.flat_shaded) {
+            throw new Error('Cannot render a planet using smooth shading without a normal map');
+        }
+
+        if (this._options.textures.color_map !== undefined) {
+            this._shader.registerTexture('color_map', this._options.textures.color_map.bound_to);
+            this._shader.define('COLOR_MAP');
+        }
+
+
+        this._shader.defineFloat('RADIUS', this._options.sphere_options.radius);
+        this._shader.defineFloat('MAX_HEIGHT', this._options.sphere_options.max_terrain_height);
     }
 
     private initShader(shader: Shader | ShaderSource): void {
 
         this._shader = shader instanceof Shader ?
-            shader : new Shader(this.gl, earthShader);
+            shader : new Shader(this.gl, planetShader);
 
         switch (this._options.sphere_type) {
             case SphereType.QuadSphere:
@@ -76,7 +89,6 @@ export default class Planet {
         }
 
         this._shader.define(this._options.flat_shaded ? 'FLAT_SHADING' : 'SMOOTH_SHADING');
-        this._shader.compile();
     }
 
     private initSphere(): void {
@@ -99,9 +111,12 @@ export default class Planet {
                 );
                 break;
         }
+
+        this._options.sphere_options = this.sphere.options;
     }
 
     public update(camera: Camera): void {
+        // this._sphere.rotate(0.01);
         this._sphere.update(camera);
     }
 
@@ -125,7 +140,11 @@ export default class Planet {
         return this._options.sphere_options.center;
     }
 
-    public get options(): PlanetOptions {
+    public get options(): Readonly<PlanetOptions> {
         return this._options;
+    }
+
+    public get shader(): Readonly<Shader> {
+        return this._shader;
     }
 }

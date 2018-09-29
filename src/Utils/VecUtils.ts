@@ -1,5 +1,4 @@
-import { vec2, vec4 } from "gl-matrix";
-import { Vec3Like } from './Vec3Utils';
+import { vec2, vec4, vec3, glMatrix } from "gl-matrix";
 import { mapIntervals } from "./MathUtils";
 
 // Arbitrary-size vector utilities
@@ -7,7 +6,11 @@ import { mapIntervals } from "./MathUtils";
 
 // 'g' in 'g_func stands for generalized or generic
 
-export type VecLike = vec2 | Vec3Like | vec4;
+export type VecLike = vec2 | vec3 | vec4 | NumberArrayLike;
+
+export type NumberArrayLike = number[] | Float32Array;
+export type Vec2Like = vec2 | NumberArrayLike;
+export type Vec4Like = vec4 | NumberArrayLike;
 
 export function g_vec<T extends VecLike>(...coords: number[]): T {
     return new Float32Array(coords) as T;
@@ -56,12 +59,12 @@ export function g_times<T extends VecLike>(vec: T, k: number): T {
     //return g_prod(vec, g_fill(k, vec.length));
 }
 
-export function g_clone<T extends VecLike>(vec: T): T {
-    return new Float32Array(vec.slice()) as T;
-}
-
-//alias
+// alias
 export const g_scale = g_times;
+
+export function g_clone<T extends VecLike>(vec: T): T {
+    return new Float32Array(vec) as T;
+}
 
 export function g_centroid<T extends VecLike>(...points: T[]): T {
     return g_scale(g_sum(...points), 1 / points.length);
@@ -69,7 +72,7 @@ export function g_centroid<T extends VecLike>(...points: T[]): T {
 
 export function g_len<T extends VecLike>(u: T): number {
     return (u as number[]).reduce((p, c) => p + c ** 2, 0) ** 0.5;
-    //return dot(u, u) ** 0.5;
+    //return g_dot(u, u) ** 0.5;
 }
 
 export function g_normalize<T extends VecLike>(u: T): T {
@@ -77,8 +80,8 @@ export function g_normalize<T extends VecLike>(u: T): T {
     return l !== 0 ? g_scale(u, 1 / l) : g_fill(0, u.length);
 }
 
-export function g_equals<T extends VecLike>(u: T, v: T, eps = 10 ** -6): boolean {
-    return u.length === v.length && (u as number[]).every((x, i) => Math.abs(x - v[i]) < eps);
+export function g_equals<T extends VecLike>(u: T, v: T): boolean {
+    return u.length === v.length && (u as number[]).every((x, i) => glMatrix.equals(x, v[i]));
 }
 
 export function g_dot<T extends VecLike>(u: T, v: T): number {
@@ -99,13 +102,21 @@ export function dist<T extends VecLike>(u: T, v: T): number {
 
 
 export function fillArray(value: number, count: number): number[] {
-    const ones = [];
+    const filled = [];
     for (let i = 0; i < count; i++) {
-        ones.push(value);
+        filled.push(value);
     }
-    return ones;
+    return filled;
 }
 
+/**
+ * Represents a bounding shape in any dimension >= 2 (rectangle, box, hyperbox...)
+ * by two of its extremities
+ *
+ * @export
+ * @interface BoundingBox
+ * @template T
+ */
 export interface BoundingBox<T extends VecLike> {
     min: T,
     max: T

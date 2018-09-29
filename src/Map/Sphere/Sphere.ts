@@ -6,6 +6,7 @@ import { Box } from "../../Utils/Helpers";
 import { invert } from "../../Utils/MathUtils";
 import SphereFace from "./SphereFace";
 import SpherePatch, { PatchInstance } from "./SpherePatch";
+import Frustum from "../../Utils/Frustum";
 
 export interface SphereOptions {
     center?: vec3,
@@ -23,16 +24,19 @@ export default abstract class Sphere {
     private static count = 0;
 
     protected readonly _ID = Sphere.count++;
-    protected gl: WebGL2RenderingContext;
+    protected readonly gl: WebGL2RenderingContext;
     protected _options: SphereOptions;
-    protected _shader: Shader;
+    protected readonly _shader: Shader;
     protected _vertices: number[];
     protected _faces: SphereFace[];
-    protected _vertex_index_map: Map<string, number>;
+    protected readonly _vertex_index_map: Map<string, number>;
     protected _model_matrix: mat4;
     protected _inv_model_matrix: mat4;
-    protected _patch: SpherePatch;
-    protected first_update = true;
+    protected readonly _patch: SpherePatch;
+    protected _first_update = true;
+    protected _needs_model_mat_update = true;
+    protected _bounding_box: Box | undefined;
+    protected _frustum: Frustum;
 
     protected _SPLIT_DIST_LUT: number[] | undefined;
     protected _FACE_CULLING_ANGLES: number[] | undefined;
@@ -65,6 +69,7 @@ export default abstract class Sphere {
 
     protected init(camera: Camera): void {
         this._faces = this.initFaces();
+        this._frustum = new Frustum(camera);
         this.updateLookUpTables(camera);
         this._patch.init();
     }
@@ -75,7 +80,9 @@ export default abstract class Sphere {
     }
 
     protected computeModelMatrix(): void {
-        this._model_matrix = mat4.create();
+        if (this._model_matrix === undefined) {
+            this._model_matrix = mat4.create();
+        }
 
         mat4.fromRotationTranslationScale(
             this._model_matrix,
@@ -120,12 +127,12 @@ export default abstract class Sphere {
         this._FACE_CULLING_ANGLES = angles;
     }
 
-    public getSplitDistance(level: number): number {
+    public getSplitDistances(): number[] {
         if (this._SPLIT_DIST_LUT === undefined) {
             throw new Error('call generateSplitDistanceLUT() before getSplitDistLUT()');
         }
 
-        return this._SPLIT_DIST_LUT[level];
+        return this._SPLIT_DIST_LUT;
     }
 
     public getFaceCullingAngle(level: number): number {
@@ -156,17 +163,31 @@ export default abstract class Sphere {
         );
     }
 
+    public rotate(axis: vec3, radians: number): void {
+        quat.setAxisAngle(this._options.orientation, axis, radians);
+        this._needs_model_mat_update = true;
+    }
+
     protected abstract initPatch(): SpherePatch;
 
     protected abstract initVertices(): number[];
 
     protected abstract initFaces(): SphereFace[];
 
+    public updateFrustum(): void {
+        this._frustum.update(this._inv_model_matrix);
+    }
+
     public update(camera: Camera): void {
 
-        if (this.first_update) {
-            this.first_update = false;
+        if (this._first_update) {
+            this._first_update = false;
             this.init(camera);
+        }
+
+        if (this._needs_model_mat_update) {
+            this._needs_model_mat_update = false;
+            this.computeModelMatrix();
         }
 
         const instances: PatchInstance[] = [];
@@ -203,6 +224,10 @@ export default abstract class Sphere {
         return this._inv_model_matrix;
     }
 
+    public get faces(): Readonly<SphereFace[]> {
+        return this._faces;
+    }
+
     public get faceCount(): number {
         return this._patch.instancesCount;
     }
@@ -211,17 +236,12 @@ export default abstract class Sphere {
         return this._ID;
     }
 
-    public get options(): SphereOptions {
+    public get options(): Readonly<SphereOptions> {
         return this._options;
     }
 
-    public get boundingBox(): Box {
-        return {
-            position: this._options.center,
-            width: this._options.radius * 2,
-            height: this._options.radius * 2,
-            depth: this._options.radius * 2
-        };
+    public get frustum(): Frustum {
+        return this._frustum;
     }
 
 }

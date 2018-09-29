@@ -17,7 +17,7 @@ export const normalMapShader: ShaderSource = {
     precision mediump float;
 
     #define USE_SOBEL
-    #define SENSITIVITY 0.9f
+    #define SENSITIVITY 1.0f
     
     in vec2 a_pos;
     

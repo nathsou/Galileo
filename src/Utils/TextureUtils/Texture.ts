@@ -1,13 +1,14 @@
-import Shader, { ShaderSource } from "./Shader";
-import { terrainShader } from "../Map/Shaders/TerrainShader";
-import { normalMapShader } from "../Map/Shaders/NormalMapShader";
+import Shader, { ShaderSource } from "../Shader";
+import { heightMapShader } from "../../Map/Shaders/HeightMapShader";
+import { normalMapShader } from "../../Map/Shaders/NormalMapShader";
 import { vec3 } from "gl-matrix";
-import { plainColorShader } from "../Map/Shaders/PlainColorShader";
-import { heightMapToColorMapShader } from "../Map/Shaders/HeightMapToColorMapShader";
+import { plainColorShader } from "../../Map/Shaders/PlainColorShader";
+import { heightMapToColorMapShader } from "../../Map/Shaders/HeightMapToColorMapShader";
+import { clampedHeightMapShader } from "../../Map/Shaders/ClampedHeightMapShader";
 
 export interface TextureInfo {
     handle: WebGLTexture,
-    boundTo: number,
+    bound_to: number,
     width: number,
     height: number
 }
@@ -17,13 +18,14 @@ export namespace Texture {
     // 0 --> Text Rendering Textures
     let id = 1;
 
-    //generate a Webgl.Texture from a given shader
+    // generate a Webgl.Texture from a given shader
     export function generate(
         gl: WebGL2RenderingContext,
         shader: Shader | ShaderSource,
         width: number,
-        height: number
-    ): TextureInfo {
+        height: number,
+        mipmaps = true
+    ): Readonly<TextureInfo> {
 
         if (!(shader instanceof Shader)) {
             shader = new Shader(gl, shader);
@@ -63,16 +65,19 @@ export namespace Texture {
         // create a color attachment texture
 
         this.texture = gl.createTexture();
-        const boundTo = id++;
-        gl.activeTexture(gl.TEXTURE0 + boundTo);
+        const bound_to = id++;
+        gl.activeTexture(gl.TEXTURE0 + bound_to);
         gl.bindTexture(gl.TEXTURE_2D, this.texture);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, width, height, 0, gl.RGB, gl.UNSIGNED_BYTE, null);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        //gl.generateMipmap(gl.TEXTURE_2D);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT);
+
+        if (mipmaps) {
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.generateMipmap(gl.TEXTURE_2D);
+        }
+
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
         // create a renderbuffer object for depth and stencil attachment (we won't be sampling these)
         if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) {
@@ -87,6 +92,8 @@ export namespace Texture {
         gl.clear(gl.COLOR_BUFFER_BIT);
 
         shader.use();
+        shader.bindUniforms();
+
         gl.bindVertexArray(VAO);
         gl.drawArrays(gl.TRIANGLES, 0, 6);
 
@@ -99,7 +106,7 @@ export namespace Texture {
 
         return {
             handle: this.texture,
-            boundTo: boundTo,
+            bound_to: bound_to,
             width: width,
             height: height
         };
@@ -111,7 +118,7 @@ export namespace Texture {
 
     export function bind(gl: WebGL2RenderingContext, tex: TextureInfo, to: number) {
         gl.bindTexture(gl.TEXTURE0 + to, tex.handle);
-        tex.boundTo = to;
+        tex.bound_to = to;
     }
 
 
@@ -203,43 +210,65 @@ export namespace Texture {
         gl: WebGL2RenderingContext,
         width: number,
         height: number,
-        color: vec3
+        color: vec3,
+        mipmaps = true
     ): TextureInfo {
         const shader = new Shader(gl, plainColorShader);
-        shader.use();
         shader.setVec3('color', color);
-        return Texture.generate(gl, shader, width, height);
+        return Texture.generate(gl, shader, width, height, mipmaps);
     }
 
     export function generateHeightMap(
         gl: WebGL2RenderingContext,
         width: number,
         height: number,
-        seed = Math.random() * 10000
-    ): TextureInfo {
-        const shader = new Shader(gl, terrainShader);
-        shader.compile();
-        shader.setFloat('seed', seed);
-        return Texture.generate(gl, shader, width, height);
+        seed = Math.random() * 10000,
+        octaves = 8,
+        frequency = 2,
+        mipmaps = true
+    ): Readonly<TextureInfo> {
+        const shader = new Shader(gl, heightMapShader);
+        shader.defineFloat('SEED', seed);
+        shader.defineFloat('FREQUENCY', frequency);
+        shader.defineInt('OCTAVES', octaves);
+        return Texture.generate(gl, shader, width, height, mipmaps);
+    }
+
+    export function generateClampedHeightMap(
+        gl: WebGL2RenderingContext,
+        width: number,
+        height: number,
+        clamp_height: number,
+        seed = Math.random() * 10000,
+        octaves = 8,
+        frequency = 2,
+        mipmaps = true
+    ): Readonly<TextureInfo> {
+        const shader = new Shader(gl, clampedHeightMapShader);
+        shader.defineFloat('SEED', seed);
+        shader.defineFloat('FREQUENCY', frequency);
+        shader.defineInt('OCTAVES', octaves);
+        shader.setFloat('clamp_height', clamp_height);
+        return Texture.generate(gl, shader, width, height, mipmaps);
     }
 
     export function generateColorMap(
         gl: WebGL2RenderingContext,
-        height_map: TextureInfo
-    ): TextureInfo {
+        height_map: TextureInfo,
+        mipmaps = true
+    ): Readonly<TextureInfo> {
         const shader = new Shader(gl, heightMapToColorMapShader);
-        shader.use();
-        shader.setInt('height_map', height_map.boundTo);
-        return Texture.generate(gl, shader, height_map.width, height_map.height);
+        shader.registerTexture('height_map', height_map.bound_to);
+        return Texture.generate(gl, shader, height_map.width, height_map.height, mipmaps);
     }
 
     export function generateNormalMap(
         gl: WebGL2RenderingContext,
-        height_map: TextureInfo
-    ): TextureInfo {
+        height_map: TextureInfo,
+        mipmaps = true
+    ): Readonly<TextureInfo> {
         const shader = new Shader(gl, normalMapShader);
-        shader.use();
-        shader.setInt('height_map', height_map.boundTo);
-        return Texture.generate(gl, shader, height_map.width, height_map.height);
+        shader.registerTexture('height_map', height_map.bound_to);
+        return Texture.generate(gl, shader, height_map.width, height_map.height, mipmaps);
     }
 }

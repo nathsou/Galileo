@@ -1,8 +1,9 @@
 import { vec3, vec4, mat4, quat } from "gl-matrix";
+import { NumberArrayLike } from "./VecUtils";
 
 // Math utils manipulating vec3s (or number arrays of length 3)
 
-export type Vec3Like = vec3 | number[] | Float32Array;
+export type Vec3Like = vec3 | NumberArrayLike;
 
 export function vec(a: number, b: number, c: number): vec3 {
     return vec3.fromValues(a, b, c);
@@ -52,7 +53,7 @@ export function vec3FromVec4(v: vec4): vec3 {
 }
 
 export function transform(vec: vec3, mat: mat4): vec3 {
-    const v = vec4.fromValues(vec[0], vec[1], vec[2], 0);
+    const v = vec4.fromValues(vec[0], vec[1], vec[2], 1);
     vec4.transformMat4(v, v, mat);
     return vec3FromVec4(v);
 }

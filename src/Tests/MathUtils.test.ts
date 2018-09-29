@@ -1,5 +1,5 @@
 import { mat4, vec3, vec4 } from "gl-matrix";
-import { clamp, combineMatrices, degrees, radians, randomMat4, triangleHypotenuse } from "../Utils/MathUtils";
+import { clamp, combineMatrices, degrees, radians, randomMat4, triangleHypotenuse, minimize } from "../Utils/MathUtils";
 import { centroid, collinear, fill, lerp, normalize, prod, sub, sum, times, vec } from "../Utils/Vec3Utils";
 import { getBoundingBox, g_normalize, g_vec, mapBox } from "../Utils/VecUtils";
 
@@ -231,5 +231,14 @@ describe('mapBox', () => {
 
         expect(mapBox(vec(0, 0, 0), box_from, box_to)).toEqual([5, 18, 7]);
         expect(mapBox(vec(10, 5, 6), box_from, box_to)).toEqual([200, 109, 122.8]);
+    });
+});
+
+describe('minimize', () => {
+    it('should minimize an array according to a performance function', () => {
+        expect(minimize([3, 89, 232, 4, 17, 1, 27, -293, Infinity, 313], a => a)).toBe(-293);
+        expect(minimize([3, 89, 232, 4, 17, 1, 27, -293, Infinity, 313], a => -a)).toBe(Infinity);
+        expect(minimize([3, 89, 232, 4, 17, 1, 27, -293, Infinity, 313], a => Math.abs(a))).toBe(1);
+        expect(minimize([], () => 0)).toBeUndefined();
     });
 });

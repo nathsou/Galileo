@@ -1,9 +1,9 @@
 import { TextureInfo } from "./Texture";
 import { vec2, mat4 } from "gl-matrix";
-import Shader from "./Shader";
-import { textShader } from "../Map/Shaders/TextShader";
-import { vec, div } from "./Vec3Utils";
-import { g_vec } from "./VecUtils";
+import Shader from "../Shader";
+import { textShader } from "../../Map/Shaders/TextShader";
+import { vec, div } from "../Vec3Utils";
+import { g_vec } from "../VecUtils";
 
 export type TextureHelper = (tex: TextureInfo, position: vec2, dimensions?: vec2) => void;
 
@@ -93,14 +93,15 @@ export function createTextureHelper(gl: WebGL2RenderingContext): TextureHelper {
 
         shader.use();
         gl.bindTexture(gl.TEXTURE_2D, tex.handle);
-        shader.setInt('u_texture', tex.boundTo);
+        shader.registerTexture('u_texture', tex.bound_to);
         shader.setMat4('transfo', transfo);
+        shader.bindUniforms();
 
         gl.bindVertexArray(VAO);
         gl.drawArrays(gl.TRIANGLES, 0, 6);
 
         gl.bindVertexArray(null);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
-        //gl.bindTexture(gl.TEXTURE_2D, null);
+        // gl.bindTexture(gl.TEXTURE_2D, null);
     }
 }

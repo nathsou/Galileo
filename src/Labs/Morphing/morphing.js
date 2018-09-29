@@ -1,18 +1,3 @@
-const vec = (x, y) => ({
-    x,
-    y
-});
-
-const add = (a, b) => vec(a.x + b.x, a.y + b.y);
-const sum = (...vecs) => vecs.reduce((p, c) => add(p, c), vec(0, 0));
-const sub = (a, b) => vec(a.x - b.x, a.y - b.y);
-const mul = (a, b) => vec(a.x * b.x, a.y * b.y);
-const times = (a, k) => mul(a, vec(k, k));
-const dot = (u, v) => u.x * v.x + u.y * v.y;
-const len = v => dot(v, v) ** 0.5;
-const normalize = v => times(v, 1 / len(v));
-
-
 const cnv = document.querySelector('#cnv');
 const ctx = cnv.getContext('2d');
 cnv.width = 800;
@@ -77,7 +62,7 @@ function morphVertex(patch, morph_factor) {
         } = vert;
 
         return scaleToCanvas(sum(A, times(R, pos.x), times(S, pos.y),
-            times(sum(times(R, morph.x), times(S, morph.y)), morph_factor)));
+            times(sum(times(R, morph.x), times(S, morph.y)), 1 - morph_factor)));
     };
 }
 
@@ -116,6 +101,34 @@ function drawTriangles(ctx, triangles, stroke_style = 'black', fill_style = 'whi
     });
 }
 
+
+function vec(x, y) {
+    return {
+        x,
+        y
+    };
+}
+
+function add(a, b) {
+    return vec(a.x + b.x, a.y + b.y);
+}
+
+function sum(...vecs) {
+    return vecs.reduce((p, c) => add(p, c), vec(0, 0));
+}
+
+function sub(a, b) {
+    return vec(a.x - b.x, a.y - b.y);
+}
+
+function mul(a, b) {
+    return vec(a.x * b.x, a.y * b.y);
+}
+
+function times(a, k) {
+    return mul(a, vec(k, k));
+}
+
 function createPatch(a, b, c) {
     return {
         A: a,
@@ -124,54 +137,19 @@ function createPatch(a, b, c) {
     };
 }
 
-const m = createTriangleMorph([
-        vec(0, 0),
-        vec(1, 0),
-        vec(0.5, 1)
-    ],
-    [
-        vec(0.5, 0),
-        vec(0.75, 0.5),
-        vec(0.25, 0.5)
-    ]
-);
-
-console.log(m);
-
-
 function createTriangleMorph(from, to) {
     const [a, b, c] = from;
     const [d, e, f] = to;
-    const R = normalize(sub(b, a));
-    const S = normalize(sub(c, a));
-
-    const project = v => vec(dot(v, R), dot(v, S));
-
-    console.log(project(R));
-    console.log(project(S));
-
     return [{
-            pos: a,
-            morph: vec(0, 0)
-        },
-        {
-            pos: b,
-            morph: vec(0, 0)
-        },
-        {
-            pos: c,
-            morph: vec(0, 0)
-        },
-        {
-            pos: d, //a
+            pos: vec(0, 0), //a
             morph: sub(d, a)
         },
         {
-            pos: e, //b
+            pos: vec(1, 0), //b
             morph: sub(e, b)
         },
         {
-            pos: f, //c
+            pos: vec(0, 1), //c
             morph: sub(f, c)
         }
     ];
@@ -180,41 +158,73 @@ function createTriangleMorph(from, to) {
 // http://robert-lindner.com/blog/planet-renderer-week-5-6/
 function generatePatchGeometry(levels) {
     //clear
-
-    const positions = [
-        vec(0, 0), //0
-        vec(1, 0), //1
-        vec(0, 1), //2,
-
-        vec(0.5, 0),
-        vec(0, 0.5),
-        vec(0.5, 0.5),
-    ];
-
-
-    const morph = [
-        vec(0, 0),
-        vec(0, 0),
-        vec(0, 0),
-
-        vec(-0.5, 0),
-        vec(0, 0.5),
-        vec(0.5, -0.5),
-    ];
-
     const vertices = [];
+    const indices = [];
 
-    positions.forEach((p, i) => {
-        vertices.push({
-            pos: p,
-            morph: morph[i]
-        });
-    });
+    let positions = [];
+    let morphs = [];
 
-    const indices = [
-        0, 1, 2,
-        3, 4, 5
-    ];
+    //Generate
+    const m_RC = 1 + 2 ** levels;
+
+    const delta = 1 / (m_RC - 1);
+
+    let rowIdx = 0;
+    let nextIdx = 0;
+
+    for (let row = 0; row < m_RC; row++) {
+        const numCols = m_RC - row;
+        nextIdx += numCols;
+        for (let column = 0; column < numCols; column++) {
+            //calc position
+            const pos = [
+                column / (m_RC - 1),
+                row / (m_RC - 1)
+            ];
+
+            //calc morph
+            const morph = [0, 0];
+            if (row % 2 == 0) {
+                if (column % 2 == 1) {
+                    morph[0] = -delta;
+                    morph[1] = 0;
+                }
+            } else {
+                if (column % 2 == 0) {
+                    morph[0] = 0;
+                    morph[1] = delta;
+                } else {
+                    morph[0] = delta;
+                    morph[1] = -delta;
+                }
+            }
+
+            //create vertex
+            positions.push(...pos);
+            morphs.push(...morph);
+            vertices.push({
+                pos: vec(...pos),
+                morph: vec(...morph)
+            });
+
+            //calc index
+            if (row < m_RC - 1 && column < numCols - 1) {
+                indices.push(rowIdx + column); //A
+                indices.push(nextIdx + column); //B
+                indices.push(1 + rowIdx + column); //C
+                if (column < numCols - 2) {
+                    indices.push(nextIdx + column); //D
+                    indices.push(1 + nextIdx + column); //E
+                    indices.push(1 + rowIdx + column); //F
+                }
+            }
+        }
+        rowIdx = nextIdx;
+    }
+
+    console.log(positions);
+    console.log(morphs);
+    console.log(indices);
 
     return {
         vertices,

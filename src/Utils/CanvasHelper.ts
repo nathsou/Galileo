@@ -1,6 +1,6 @@
 import { vec2 } from "gl-matrix";
-import { TextureInfo } from "./Texture";
-import { createTextureHelper } from "./TextureHelper";
+import { TextureInfo } from "./TextureUtils/Texture";
+import { createTextureHelper } from "./TextureUtils/TextureHelper";
 
 export type CanvasHelper = (canvas: HTMLCanvasElement, pos: vec2, dimensions?: vec2) => void;
 
@@ -17,7 +17,7 @@ export function createCanvasHelper(
         gl.bindTexture(gl.TEXTURE_2D, tex);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
         gl.generateMipmap(gl.TEXTURE_2D);
 
@@ -25,7 +25,7 @@ export function createCanvasHelper(
             handle: tex,
             width: canvas.width,
             height: canvas.height,
-            boundTo: 0
+            bound_to: 0
         };
 
         drawTexture(tex_info, position, dimensions);

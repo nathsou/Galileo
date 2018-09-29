@@ -1,7 +1,44 @@
 import SpherePatch from "../SpherePatch";
+import { g_vec } from "../../../Utils/VecUtils";
+import { vec2 } from "gl-matrix";
 
 
 export default class IcoSpherePatch extends SpherePatch {
+
+    public generateInstance(): { vertices: vec2[], morph: vec2[], indices: number[] } {
+
+        const vertices = [
+            g_vec(0, 0),
+            g_vec(0.5, 0),
+            g_vec(1, 0),
+            g_vec(0, 0.5),
+            g_vec(0.5, 0.5),
+            g_vec(0, 1)
+        ] as vec2[];
+
+
+        const morph = [
+            g_vec(0, 0),
+            g_vec(-0.5, 0),
+            g_vec(0, 0),
+            g_vec(0, 0.5),
+            g_vec(0.5, -0.5),
+            g_vec(0, 0)
+        ] as vec2[];
+
+        const indices = [
+            0, 3, 1,
+            3, 4, 1,
+            1, 4, 2,
+            3, 5, 4
+        ];
+
+        return {
+            vertices,
+            morph,
+            indices
+        }
+    }
 
     // http://robert-lindner.com/blog/planet-renderer-week-5-6/
     public generateGeometry(): void {

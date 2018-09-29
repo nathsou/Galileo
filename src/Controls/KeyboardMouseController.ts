@@ -1,19 +1,19 @@
-import Camera from './Camera';
-import EventEmitter from "../Utils/EventEmitter";
-import Controller from "./Controller";
-import { KeyboardLayout, KeyboardLayoutMap, KeyboardLayoutMaps } from "./KeyboardLayout";
-import { vec3, quat } from 'gl-matrix';
-import { radians } from '../Utils/MathUtils';
+import { quat, vec3 } from 'gl-matrix';
+import { radians, kph_to_kps, kps_to_kph } from '../Utils/MathUtils';
 import { normalize, scale } from '../Utils/Vec3Utils';
+import Camera from './Camera';
+import Controller from "./Controller";
+import InputHandler from './InputHandler';
+import { KeyboardLayout, KeyboardLayoutMap, KeyboardLayoutMaps } from "./KeyboardLayout";
 
-export default class KeyboardMouseController extends EventEmitter implements Controller {
+export default class KeyboardMouseController implements Controller {
 
     public camera: Camera;
     public domElement: EventTarget;
 
     private _actions: Map<string, boolean>;
-    public _speed: number;
-    public _mouse_sensitivity: number;
+    private _speed_kps: number; //kilometers per second
+    private _mouse_sensitivity: number;
     private _layout = KeyboardLayout.CLASSICAL;
     private _key_map: KeyboardLayoutMap;
     private _needs_update = true;
@@ -22,14 +22,13 @@ export default class KeyboardMouseController extends EventEmitter implements Con
     constructor(
         camera: Camera,
         domElement: EventTarget,
-        speed = 10,
+        speed_kps = 10_000, //km per second
         mouse_sensitivity = 0.1
     ) {
-        super();
         this.camera = camera;
         this.domElement = domElement;
 
-        this._speed = speed;
+        this._speed_kps = speed_kps;
         this._mouse_sensitivity = mouse_sensitivity;
 
         if (KeyboardLayoutMaps.has(this._layout)) {
@@ -40,11 +39,12 @@ export default class KeyboardMouseController extends EventEmitter implements Con
 
         this._actions = new Map<string, boolean>();
 
-        this.domElement.addEventListener('keydown', this.onKeyDown.bind(this), false);
-        this.domElement.addEventListener('keyup', this.onKeyUp.bind(this), false);
-        this.domElement.addEventListener('mousemove', this.onMouseMove.bind(this), false);
-        this.domElement.addEventListener('pointerlockchange', this.onPointerLockChange.bind(this), false);
-        this.domElement.addEventListener('pointerlockerror', this.onPointerLockError.bind(this), false);
+
+        InputHandler.instance.onKeyDown(this.onKeyDown.bind(this));
+        InputHandler.instance.onKeyUp(this.onKeyUp.bind(this));
+        InputHandler.instance.onMouseMove(this.onMouseMove.bind(this));
+        InputHandler.instance.onPointerLockChange(this.onPointerLockChange.bind(this));
+        InputHandler.instance.onPointerLockError(this.onPointerLockError.bind(this));
     }
 
     private actionPerformed(action: string, keyCode: string): boolean {
@@ -60,22 +60,18 @@ export default class KeyboardMouseController extends EventEmitter implements Con
     }
 
     private onKeyDown(event: KeyboardEvent): void {
-        this.emit('keydown', event);
         this.updateActions(event.code, true);
     }
 
     private onKeyUp(event: KeyboardEvent): void {
-        this.emit('keyup', event);
         this.updateActions(event.code, false);
     }
 
     public onPointerLockChange(event: Event) {
-        this.emit('pointerlockchange', event);
         this._pointerLockEnabled = !this._pointerLockEnabled;
     }
 
     public onPointerLockError(event: Event) {
-        this.emit('pointerlockerror', event);
         console.error('Pointer Lock Error');
     }
 
@@ -88,35 +84,17 @@ export default class KeyboardMouseController extends EventEmitter implements Con
         const deltaPitch = radians(event.movementY * this._mouse_sensitivity);
 
         const q = this.camera.orientation;
-        quat.rotateX(q, q, -deltaPitch);
+        quat.rotateX(q, q, deltaPitch);
         quat.rotateY(q, q, -deltaYaw);
         this.camera.orientation = q;
 
-        this.emit('turn', event);
         this._needs_update = true;
-    }
-
-    public dispose(): void {
-        this.domElement.removeEventListener('keydown', this.onKeyDown.bind(this), false);
-        this.domElement.removeEventListener('keyup', this.onKeyUp.bind(this), false);
-        this.domElement.removeEventListener('mousemove', this.onMouseMove.bind(this), false);
-        this.domElement.removeEventListener('pointerlockchange', this.onPointerLockChange.bind(this), false);
-        this.domElement.removeEventListener('pointerlockerror', this.onPointerLockError.bind(this), false);
-        this.removeListeners();
-    }
-
-    public onMove(handler: () => void): void {
-        this.on('move', handler);
-    }
-
-    public onTurn(handler: () => void): void {
-        this.on('turn', handler);
     }
 
     //returns whether or not the player has moved during this update
     public update(delta: number, normalized_altitude: number): boolean {
 
-        const speed = delta * this._speed * normalized_altitude;
+        const speed = (delta / 1000) * this._speed_kps * normalized_altitude;
         const basis = this.camera.basis;
         let delta_pos = vec3.create(),
             moved = false;
@@ -132,12 +110,12 @@ export default class KeyboardMouseController extends EventEmitter implements Con
         }
 
         if (this._actions.get('right')) {
-            vec3.add(delta_pos, delta_pos, basis.right);
+            vec3.sub(delta_pos, delta_pos, basis.right);
             moved = true;
         }
 
         if (this._actions.get('left')) {
-            vec3.sub(delta_pos, delta_pos, basis.right);
+            vec3.add(delta_pos, delta_pos, basis.right);
             moved = true;
         }
 
@@ -151,10 +129,8 @@ export default class KeyboardMouseController extends EventEmitter implements Con
             moved = true;
         }
 
-        this.camera.lookAt(basis.front, basis.up);
         this.camera.move(scale(normalize(delta_pos), speed));
-
-        if (moved) this.emit('move', delta_pos);
+        this.camera.updateViewMatrix();
 
         const updated = moved || this._needs_update;
         this._needs_update = false;

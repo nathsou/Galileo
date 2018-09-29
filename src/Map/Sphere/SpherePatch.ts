@@ -1,8 +1,8 @@
-import Sphere from "./Sphere";
-import { vec3, vec2 } from "gl-matrix";
-import { normalize, vec, scale } from "../../Utils/Vec3Utils";
+import { vec2, vec3 } from "gl-matrix";
 import Camera from "../../Controls/Camera";
-
+import { UniformType } from "../../Utils/Shader";
+import { transform, vec } from "../../Utils/Vec3Utils";
+import Sphere from "./Sphere";
 
 export interface PatchVertex {
     position: vec2;
@@ -49,20 +49,11 @@ export default abstract class SpherePatch {
     }
 
     protected initUniforms(): void {
-        const light_dir = normalize(vec(1, 0.7, 0.3));
+        const light_pos = vec(-14000, 8000, -17000);
 
         this._sphere.shader.setFloat('morph_range', this._sphere.options.morph_range);
-        this._sphere.shader.setVec3('light_dir', light_dir);
-
-        this.uploadDistanceLUT();
-    }
-
-    protected uploadDistanceLUT(): void {
-        this.gl.useProgram(this._sphere.shader.program);
-
-        for (let i = 0; i < this._sphere.options.max_lod; i++) {
-            this._sphere.shader.setFloat(`distanceLUT[${i}]`, this._sphere.getSplitDistance(i));
-        }
+        this._sphere.shader.setVec3('light_pos', light_pos);
+        this._sphere.shader.setArray('distanceLUT', this._sphere.getSplitDistances(), UniformType.FLOAT);
     }
 
     protected initAttributes(): void {
@@ -94,11 +85,7 @@ export default abstract class SpherePatch {
     }
 
     public init(): void {
-
-        //Shader init
         this._sphere.shader.use();
-        // this.gl.enable(this.gl.DEPTH_TEST);
-        // this.gl.enable(this.gl.CULL_FACE);
 
         this.initUniforms();
         this.initAttributes();
@@ -159,7 +146,8 @@ export default abstract class SpherePatch {
 
     protected updateUniforms(camera: Camera, points: boolean): void {
 
-        const cam_pos = scale(camera.position, 1 / this._sphere.radius);
+        const cam_pos = transform(camera.position, this._sphere.inverseModelMatrix);
+        //const cam_pos = scale(camera.position, 1 / this._sphere.radius);
 
         this._sphere.shader.setMat4('model', this._sphere.modelMatrix);
         this._sphere.shader.setMat4('view', camera.viewMatrix);
@@ -168,7 +156,7 @@ export default abstract class SpherePatch {
         this._sphere.shader.setVec3('cam_pos', cam_pos);
         this._sphere.shader.setBool('points', points);
 
-        this._sphere.shader.bindTextures();
+        this._sphere.shader.bindUniforms();
     }
 
     public render(camera: Camera, mode = this.gl.TRIANGLES): void {
@@ -181,6 +169,8 @@ export default abstract class SpherePatch {
         //Bind Object vertex array
         this.gl.bindVertexArray(this.VAO);
 
+        this._instances_count = this._instances.length / 10;
+
         //Draw the object
         this.gl.drawElementsInstanced(
             mode,
@@ -188,13 +178,12 @@ export default abstract class SpherePatch {
             this.gl.UNSIGNED_INT,
             0,
             // level: float + A: vec3 + R: vec3 + S: vec3 -> 10 floats
-            this._instances.length / 10
+            this._instances_count
         );
 
         //unbind vertex array
         this.gl.bindVertexArray(null);
 
-        this._instances_count = this._instances.length;
         this._instances = [];
     }
 

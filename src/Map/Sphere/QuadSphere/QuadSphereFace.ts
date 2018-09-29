@@ -1,6 +1,7 @@
 import { vec3 } from "gl-matrix";
 import Sphere from "../Sphere";
 import SphereFace from "../SphereFace";
+import { vec } from "../../../Utils/Vec3Utils";
 
 export default class QuadSphereFace extends SphereFace {
 
@@ -42,4 +43,4 @@ export default class QuadSphereFace extends SphereFace {
         this._has_children = true;
     }
 
-}  
+}

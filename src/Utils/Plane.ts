@@ -9,7 +9,7 @@ export class Plane {
     // a, b and c belong to the plane
     constructor(a: vec3, b: vec3, c: vec3) {
         this._point = a;
-        this._normal = normalize(cross(sub(b, a), sub(c, a)));
+        this._normal = normalize(cross(sub(c, a), sub(b, a)));
 
         if (vec3.equals(this._normal, fill(0))) {
             throw new Error('Cannot construct a plane with aligned points');

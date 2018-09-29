@@ -1,8 +1,7 @@
-import Sphere from "./Sphere";
 import { vec3 } from "gl-matrix";
-import { lerp, normalize, sum, times, centroid, sub } from "../../Utils/Vec3Utils";
-import Frustum from "../../Utils/Frustum";
 import Camera from "../../Controls/Camera";
+import { centroid, lerp, normalize, sub, sum, times, transform } from "../../Utils/Vec3Utils";
+import Sphere from "./Sphere";
 import { PatchInstance } from "./SpherePatch";
 
 interface BoundingGeometry {
@@ -12,7 +11,7 @@ interface BoundingGeometry {
 
 export default abstract class SphereFace {
 
-    protected _indices: number[];
+    protected _indices: ReadonlyArray<number>;
     protected _sphere: Sphere;
     protected _parent: SphereFace | null;
     protected _has_children = false;
@@ -32,15 +31,14 @@ export default abstract class SphereFace {
 
     protected abstract split(): void;
 
-
-    protected intersectsFrustum(frustum: Frustum): boolean {
-        return frustum.containsVolume(this.boundingGeometry.bottom_vertices) ||
-            frustum.containsVolume(this.boundingGeometry.top_vertices);
+    protected intersectsFrustum(): boolean {
+        return this._sphere.frustum.containsVolume(this.boundingGeometry.bottom_vertices) ||
+            this._sphere.frustum.containsVolume(this.boundingGeometry.top_vertices);
     }
 
-    protected get boundingGeometry(): BoundingGeometry {
+    public get boundingGeometry(): BoundingGeometry {
         if (this._bounding_geometry === undefined) {
-            const h = this._sphere.options.max_terrain_height / this._sphere.radius;
+            const h = (this._sphere.options.max_terrain_height / this._sphere.radius);
 
             const bottom_vertices = this._indices.map(v => normalize(this._sphere.vertexAt(v)));
             const top_vertices = bottom_vertices.map(v => sum(v, times(normalize(v), h)));
@@ -51,21 +49,17 @@ export default abstract class SphereFace {
         return this._bounding_geometry;
     }
 
-    protected isVisible(camera: Camera): boolean {
-        const normal = vec3.create();
-        const dir = vec3.create();
-        vec3.normalize(normal, this.centroid);
-        vec3.sub(dir, normal, camera.position);
-        vec3.normalize(dir, dir);
+    protected isVisible(cam_pos: vec3): boolean {
+        const normal = normalize(this.centroid);
+        const dir = normalize(sub(normal, cam_pos));
 
         const face_culled = vec3.dot(normal, dir) < this._sphere.getFaceCullingAngle(this._level);
         if (!face_culled) return false;
 
-        return this.intersectsFrustum(camera.frustum);
+        return this.intersectsFrustum();
     }
 
     protected getMidPoint(idx1: number, idx2: number): number {
-
         const v1 = this._sphere.vertexAt(idx1);
         const v2 = this._sphere.vertexAt(idx2);
         const mid = lerp(v1, v2, 0.5);
@@ -73,13 +67,11 @@ export default abstract class SphereFace {
         return this._sphere.addVertex(mid);
     }
 
-    protected shouldSplit(camera: Camera): boolean {
+    protected shouldSplit(cam_pos: vec3): boolean {
         if (this._level >= this._sphere.options.max_lod) return false;
-        const p2 = vec3.create();
-        vec3.scale(p2, camera.position, 1 / this._sphere.radius);
 
-        const dist = vec3.dist(p2, this.centroid);
-        return dist < this._sphere.getSplitDistance(this._level);
+        const dist = vec3.dist(cam_pos, this.centroid);
+        return dist < this._sphere.getSplitDistances()[this._level];
     }
 
     protected mapToUnitSphere(u: vec3): vec3 {
@@ -116,9 +108,11 @@ export default abstract class SphereFace {
     }
 
     public updatePatchInstances(camera: Camera, instances: PatchInstance[]): void {
-        if (!this.isVisible(camera)) return;
+        const cam_pos = transform(camera.position, this._sphere.inverseModelMatrix);
 
-        if (this.shouldSplit(camera)) {
+        if (!this.isVisible(cam_pos)) return;
+
+        if (this.shouldSplit(cam_pos)) {
             this.split();
 
             for (let child of this._children) {
