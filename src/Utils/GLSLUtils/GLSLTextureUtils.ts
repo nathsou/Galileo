@@ -1,21 +1,50 @@
-import { GLSLFunction, preprocessor_isolate } from "./GLSLUtils";
+import { preprocessor_isolate, glslify_vec } from "./GLSLUtils";
+import { color, hex2vec3 } from "../ColorUtils";
 
-export const getTerrainColor: GLSLFunction = (name = 'getTerrainColor'): string => {
+export function getTerrainColor(
+    name = 'getTerrainColor',
+    colors = {
+        low_water_color: hex2vec3(0x536fac), // vec3(28.0f, 58.0f, 106.0f) / vec3(255.0f)
+        high_water_color: hex2vec3(0x182a65), // vec3(0.302f, 0.388f, 0.714f)
+        low_land_color: hex2vec3(0x8c8d76), // vec3(0.239f, 0.614f, 0.214f)
+        high_land_color: hex2vec3(0x2f5136), // vec3(0.686f, 0.671f, 0.412f)
+        low_mountain_color: hex2vec3(0xded9c7), // vec3(0.686f, 0.671f, 0.412f)
+        high_mountain_color: hex2vec3(0xe3e5e5),
+        snow_color: hex2vec3(0xe3e5e5)
+    },
+    heights = {
+        water: 0.5,
+        land: 0.7,
+        mountains: 0.9
+    }
+): string {
     return preprocessor_isolate(name, `
         vec3 ${name}(float n) {
-            if (n == 0.0f) {
-                // return vec3(28.0f, 58.0f, 106.0f) / vec3(255.0f);
-                // return vec3(0.0, 0.5, 0.5);
-                return vec3(0.302f, 0.388f, 0.714f); //water
-            } else if (n < 0.4f) {
-                return mix(vec3(0.239f, 0.614f, 0.214f), vec3(0.686f, 0.671f, 0.412f), smoothstep(0.0f, 0.4f, n)); //land
-            } else if (n < 0.7f) {
-                vec3 color1 = vec3(0.686f, 0.671f, 0.412f);
-                vec3 color2 = vec3(0.486f, 0.371f, 0.312f);
-                return mix(color1, color2, smoothstep(0.4f, 0.7f, n));
+            if (n < ${heights.water}) {
+                return mix(
+                    ${glslify_vec(colors.low_water_color)},
+                    ${glslify_vec(colors.high_water_color)},
+                    smoothstep(0.0f, ${heights.water}, n)
+                );
+            } else if (n < ${heights.land}) { // land
+                return mix(
+                    ${glslify_vec(colors.high_land_color)},
+                    ${glslify_vec(colors.low_land_color)},
+                    smoothstep(${heights.water}, ${heights.land}, n)
+                );
+            } else if (n < ${heights.mountains}) { // mountain
+                return mix(
+                    ${glslify_vec(colors.low_mountain_color)},
+                    ${glslify_vec(colors.high_mountain_color)},
+                    smoothstep(${heights.land}, ${heights.mountains}, n)
+                );
             } else {
-                return mix(vec3(0.486f, 0.371f, 0.312f), vec3(0.949f, 0.949f, 0.949f), smoothstep(0.7f, 1.0f, n)); //mountains
+                return mix(
+                    ${glslify_vec(colors.high_mountain_color)},
+                    ${glslify_vec(colors.snow_color)},
+                    smoothstep(${heights.mountains}, 1.0f, n)
+                );
             }
         }
-    `);
+`);
 };

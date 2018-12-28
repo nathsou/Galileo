@@ -6,7 +6,7 @@ import Universe from './Map/Universe';
 import Clock from './Utils/Clock';
 import { colors } from './Utils/ColorUtils';
 import { BoxHelper, createBoxHelper, createFrustumHelper, createPointHelper, FrustumHelper, PointHelper } from './Utils/Helpers';
-import { average, combineMatrices, formatDistance, getAltitude, getNormalizedAltitude, minimize, total } from './Utils/MathUtils';
+import { average, combineMatrices, formatDistance, getAltitude, getNormalizedAltitude, minimize, total, radians } from './Utils/MathUtils';
 import { Texture } from './Utils/TextureUtils/Texture';
 import { createTextureHelper, TextureHelper } from './Utils/TextureUtils/TextureHelper';
 import { createPlotHelper, createTextHelper, PlotHelper, TextHelper } from './Utils/TextUtils';
@@ -48,7 +48,7 @@ export default class Main {
         this.clock = new Clock();
         this.universe = new Universe();
 
-        const width = 2 ** 11;
+        const width = 2 ** 12;
 
         const earth_like = new Planet(gl, {
             sphere_options: {
@@ -57,7 +57,7 @@ export default class Main {
                 max_lod: 5,
                 patch_levels: 3,
                 max_edge_size: 100,
-                max_terrain_height: 400 //8.850 // mount everest,
+                max_terrain_height: 600 //8.850 // mount everest,
             },
             textures: generateEarthyTextures(gl, width),
             flat_shaded: this.flat_shaded,
@@ -73,7 +73,7 @@ export default class Main {
                 max_terrain_height: 10.786,
                 center: vec(-384_400 / 10, 0, 0)
             },
-            textures: generateMoonyTextures(gl, width),
+            textures: generateMoonyTextures(gl, 512),
             flat_shaded: this.flat_shaded,
             sphere_type: SphereType.QuadSphere
         });
@@ -353,6 +353,3 @@ export default class Main {
     }
 
 }
-
-///@ts-ignore
-window['Main'] = Main;

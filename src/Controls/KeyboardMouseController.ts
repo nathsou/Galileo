@@ -1,5 +1,5 @@
 import { quat, vec3 } from 'gl-matrix';
-import { radians, kph_to_kps, kps_to_kph } from '../Utils/MathUtils';
+import { radians } from '../Utils/MathUtils';
 import { normalize, scale } from '../Utils/Vec3Utils';
 import Camera from './Camera';
 import Controller from "./Controller";

@@ -1,9 +1,9 @@
-import { TextureInfo } from "./Texture";
 import { vec2, mat4 } from "gl-matrix";
-import Shader from "../Shader";
-import { textShader } from "../../Map/Shaders/TextShader";
-import { vec, div } from "../Vec3Utils";
-import { g_vec } from "../VecUtils";
+import Shader from "./Shader";
+import { textShader } from "../Map/Shaders/TextShader";
+import { vec, div } from "./Vec3Utils";
+import { TextureInfo } from "./TextureUtils/Texture";
+import { g_vec } from "./VecUtils";
 
 export type TextureHelper = (tex: TextureInfo, position: vec2, dimensions?: vec2) => void;
 
@@ -23,7 +23,7 @@ export function createTextureHelper(gl: WebGL2RenderingContext): TextureHelper {
         1, 1,
     ];
 
-    const tex_coords = [
+    const texcoords = [
         0, 0,
         0, 1,
         1, 0,
@@ -45,7 +45,7 @@ export function createTextureHelper(gl: WebGL2RenderingContext): TextureHelper {
 
     const uv_buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, uv_buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tex_coords), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texcoords), gl.STATIC_DRAW);
     const uv_attrib = shader.getAttribLocation('texcoords');
     gl.vertexAttribPointer(uv_attrib, 2, gl.FLOAT, true, 0, 0);
     gl.enableVertexAttribArray(uv_attrib);
@@ -56,14 +56,17 @@ export function createTextureHelper(gl: WebGL2RenderingContext): TextureHelper {
 
     return (tex: TextureInfo, position: vec2, dimensions?: vec2) => {
 
-        if (dimensions === undefined) {
+
+        /*         
+        const tr = mat4.create();
+        mat4.ortho(tr, 0, gl.canvas.width, gl.canvas.height, 0, -1, 1);
+        mat4.translate(tr, tr, position);
+        mat4.scale(tr, tr, [canvas.width, canvas.height, 1]); 
+        */
+
+        if (!dimensions) {
             dimensions = g_vec(tex.width, tex.height);
         }
-
-        // const tr = mat4.create();
-        // mat4.ortho(tr, 0, gl.canvas.width, gl.canvas.height, 0, -1, 1);
-        // mat4.translate(tr, tr, vec(position[0], position[1], 0));
-        // mat4.scale(tr, tr, [dimensions[0], dimensions[1], 1]);
 
         const transfo = mat4.create();
 
@@ -86,7 +89,7 @@ export function createTextureHelper(gl: WebGL2RenderingContext): TextureHelper {
             ]
         );
 
-        // console.log(`[${transfo.join(', ')}] - [${tr.join(', ')}]`);
+        //console.log(`[${transfo.join(', ')}] - [${tr.join(', ')}]`);
 
         shader.use();
         gl.bindTexture(gl.TEXTURE_2D, tex.handle);

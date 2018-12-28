@@ -1,5 +1,7 @@
 import { vec3 } from "gl-matrix";
 
+export type color = vec3;
+
 export function hex2vec3(hex: number): vec3 {
     return vec3.fromValues(
         ((hex >> 16) & 0xff) / 0xff,

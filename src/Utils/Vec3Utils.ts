@@ -1,24 +1,34 @@
-import { vec3, vec4, mat4, quat } from "gl-matrix";
+import { mat4, quat, vec3, vec4 } from "gl-matrix";
 import { NumberArrayLike } from "./VecUtils";
 
 // Math utils manipulating vec3s (or number arrays of length 3)
 
 export type Vec3Like = vec3 | NumberArrayLike;
 
-export function vec(a: number, b: number, c: number): vec3 {
-    return vec3.fromValues(a, b, c);
-}
+export const vec = vec3.fromValues;
 
 export function fill(n: number): vec3 {
     return vec3.fromValues(n, n, n);
 }
 
 export function sum(...vecs: Vec3Like[]): vec3 {
-    return vecs.reduce((prev: vec3, curr: vec3) => vec3.add(prev, prev, curr), fill(0)) as vec3;
+    const out = vec(0, 0, 0);
+    for (let i = 0; i < vecs.length; i++) {
+        out[0] += vecs[i][0];
+        out[1] += vecs[i][1];
+        out[2] += vecs[i][2];
+    }
+    return out;
 }
 
 export function prod(...vecs: Vec3Like[]): vec3 {
-    return vecs.reduce((prev: vec3, curr: vec3) => vec3.mul(prev, prev, curr), fill(1)) as vec3;
+    const out = vec(1, 1, 1);
+    for (let i = 0; i < vecs.length; i++) {
+        out[0] *= vecs[i][0];
+        out[1] *= vecs[i][1];
+        out[2] *= vecs[i][2];
+    }
+    return out;
 }
 
 export function div(a: vec3, b: vec3): vec3 {
@@ -31,8 +41,8 @@ export function sub(a: vec3, b: vec3): vec3 {
     return vec3.sub(out, a, b);
 }
 
-export function times(vec: vec3, k: number): vec3 {
-    return prod(vec, [k, k, k]);
+export function times(u: vec3, k: number): vec3 {
+    return vec(u[0] * k, u[1] * k, u[2] * k);
 }
 
 //alias
@@ -61,8 +71,7 @@ export function transform(vec: vec3, mat: mat4): vec3 {
 export function rotate(vec: vec3 | number[], rotation: quat): vec3 {
     const rotated_vec = vec3.create();
     vec3.transformQuat(rotated_vec, vec, rotation);
-    vec3.normalize(rotated_vec, rotated_vec);
-    return rotated_vec;
+    return vec3.normalize(rotated_vec, rotated_vec);
 }
 
 export function cross(a: vec3, b: vec3): vec3 {

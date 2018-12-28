@@ -34,7 +34,13 @@ out vec3 v_cam_pos;
 float getHeight(vec3 pos) {
     #ifdef HEIGHT_MAP
         vec2 uv = vec2(atan(pos.z, pos.x), acos(pos.y)) / vec2(6.28318530718f, 3.14159265359f);
-        return texture(height_map, uv).r * (MAX_HEIGHT / RADIUS);
+        float h = texture(height_map, uv).r;
+        
+        if (h <= 0.5f) {
+            h = 0.5f;
+        }
+
+        return h * (MAX_HEIGHT / RADIUS);
     #endif
 
     return 0.0f;

@@ -9,7 +9,7 @@ export function generateEarthyTextures(
 ): PlanetTextures {
     const width = resolution;
     const height = resolution / 2;
-    const height_map = Texture.generateClampedHeightMap(gl, width, height, 0.5);
+    const height_map = Texture.generateHeightMap(gl, width, height);
     const normal_map = Texture.generateNormalMap(gl, height_map);
 
     return {
@@ -20,7 +20,8 @@ export function generateEarthyTextures(
 
 export function generateMoonyTextures(
     gl: WebGL2RenderingContext,
-    resolution: number
+    resolution: number,
+    normal_map = false
 ): PlanetTextures {
     const width = resolution;
     const height = resolution / 2;
@@ -30,7 +31,8 @@ export function generateMoonyTextures(
 
     return {
         height_map,
-        color_map
+        color_map,
+        normal_map: normal_map ? Texture.generateNormalMap(gl, height_map) : undefined
     };
 }
 

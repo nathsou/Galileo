@@ -15,7 +15,7 @@ Lightweight planet renderer with continuous level of detail
 - [x] Better frustum culling
 - [x] Text rendering
 - [ ] Support multiple lights
-- [ ] Add planet type diversity
+- [x] Add planet type diversity
 - [ ] Add Wireframe mode
 - [ ] Optimize the amount of vertices in memory depending on the LOD
 - [x] Fix alpha blending issues

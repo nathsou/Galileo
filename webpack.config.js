@@ -18,7 +18,8 @@ module.exports = {
     },
     output: {
         filename: 'galileo.js',
-        path: dist
+        path: dist,
+        library: 'Main'
     },
     devServer: {
         contentBase: dist,

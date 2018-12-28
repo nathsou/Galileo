@@ -5,41 +5,14 @@ import QuadSpherePatch from "./QuadSpherePatch";
 export default class QuadSphere extends Sphere {
 
     private static readonly cube_vertices = [
-        // back
         -1, -1, -1,
         1, -1, -1,
         1, 1, -1,
         -1, 1, -1,
-
-        // front
         -1, -1, 1,
         -1, 1, 1,
         1, 1, 1,
-        1, -1, 1,
-
-        // left
-        -1, -1, -1,
-        -1, 1, -1,
-        -1, 1, 1,
-        -1, -1, 1,
-
-        // right
-        1, -1, -1,
-        1, -1, 1,
-        1, 1, 1,
-        1, 1, -1,
-
-        // top
-        -1, 1, -1,
-        1, 1, -1,
-        1, 1, 1,
-        -1, 1, 1,
-
-        // bottom
-        -1, -1, -1,
-        -1, -1, 1,
-        1, -1, 1,
-        1, -1, -1
+        1, -1, 1
     ];
 
     protected initPatch(): QuadSpherePatch {
@@ -54,10 +27,10 @@ export default class QuadSphere extends Sphere {
         return [
             new QuadSphereFace(0, 1, 2, 3, this),
             new QuadSphereFace(4, 5, 6, 7, this),
-            new QuadSphereFace(8, 9, 10, 11, this),
-            new QuadSphereFace(12, 13, 14, 15, this),
-            new QuadSphereFace(16, 17, 18, 19, this),
-            new QuadSphereFace(20, 21, 22, 23, this)
+            new QuadSphereFace(0, 3, 5, 4, this),
+            new QuadSphereFace(1, 7, 6, 2, this),
+            new QuadSphereFace(3, 2, 6, 5, this),
+            new QuadSphereFace(0, 4, 7, 1, this)
         ];
     }
 
